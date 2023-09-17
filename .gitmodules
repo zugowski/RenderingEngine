@@ -1,0 +1,6 @@
+[submodule "lib/DirectXTK12"]
+	path = lib/DirectXTK12
+	url = https://github.com/microsoft/DirectXTK12
+[submodule "lib/assimp"]
+	path = lib/assimp
+	url = https://github.com/assimp/assimp
