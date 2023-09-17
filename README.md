@@ -24,7 +24,7 @@ cd ..
 # setup after cloning the project
 ##########################################################
 
-git clone --recurse-submodules https://github.com/knutella/retest
+git clone --recurse-submodules https://github.com/zugowski/RenderingEngine
 # git submodule init
 # git submodule update
 
