@@ -33,7 +33,7 @@ bool ConstantBuffer::Init
     m_pPool->AddRef();
 
     size_t align = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
-    UINT64 sizeAligned = (size + (align - 1)) & ~(align - 1); // alignªËï·ªêß¾ª²ªë.
+    UINT64 sizeAligned = (size + (align - 1)) & ~(align - 1);
 
     D3D12_HEAP_PROPERTIES prop = {};
     prop.Type = D3D12_HEAP_TYPE_UPLOAD;

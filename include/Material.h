@@ -15,6 +15,10 @@ public:
         TEXTURE_USAGE_SPECULAR,
         TEXTURE_USAGE_SHININESS,
         TEXTURE_USAGE_NORMAL,
+        TEXTURE_USAGE_PBR_ALBEDO,
+        TEXTURE_USAGE_PBR_NORMAL,
+        TEXTURE_USAGE_PBR_METALIC,
+        TEXTURE_USAGE_PBR_ROUGHNESS,
         TEXTURE_USAGE_COUNT
     };
 
@@ -72,7 +76,11 @@ private:
     void operator = (const Material&) = delete;
 };
 
-constexpr auto TU_DIFFUSE   = Material::TEXTURE_USAGE_DIFFUSE;
-constexpr auto TU_SPECULAR  = Material::TEXTURE_USAGE_SPECULAR;
-constexpr auto TU_SHININESS = Material::TEXTURE_USAGE_SHININESS;
-constexpr auto TU_NORMAL    = Material::TEXTURE_USAGE_NORMAL;
+constexpr auto TU_DIFFUSE       = Material::TEXTURE_USAGE_DIFFUSE;
+constexpr auto TU_SPECULAR      = Material::TEXTURE_USAGE_SPECULAR;
+constexpr auto TU_SHININESS     = Material::TEXTURE_USAGE_SHININESS;
+constexpr auto TU_NORMAL        = Material::TEXTURE_USAGE_NORMAL;
+constexpr auto TU_PBR_ALBEDO    = Material::TEXTURE_USAGE_PBR_ALBEDO;
+constexpr auto TU_PBR_NORMAL    = Material::TEXTURE_USAGE_PBR_NORMAL;
+constexpr auto TU_PBR_METALIC   = Material::TEXTURE_USAGE_PBR_METALIC;
+constexpr auto TU_PBR_ROUGHNESS = Material::TEXTURE_USAGE_PBR_ROUGHNESS;

@@ -21,13 +21,13 @@ cbuffer LightBuffer : register(b1)
     
     float3 PtLightPosition   : packoffset(c3);
     float3 PtLightColor      : packoffset(c4);
-    float PtLightRange       : packoffset(c4.w);
+    float  PtLightRange      : packoffset(c4.w);
     
     float3 SptLightPosition  : packoffset(c5);
     float3 SptLightColor     : packoffset(c6);
-    float SptLightRange      : packoffset(c6.w);
+    float  SptLightRange     : packoffset(c6.w);
     float3 SptLightDirection : packoffset(c7);
-    float SptAngle           : packoffset(c7.w);
+    float  SptAngle          : packoffset(c7.w);
 }
 
 cbuffer MaterialBuffer : register(b2)

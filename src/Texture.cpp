@@ -43,15 +43,11 @@ bool Texture::Init
     }
 
     bool isCube = false;
-    auto hr = DirectX::CreateDDSTextureFromFile(
+    auto hr = DirectX::CreateWICTextureFromFile(
         pDevice,
         batch,
         filename,
-        m_pTex.GetAddressOf(),
-        true,
-        0,
-        nullptr,
-        &isCube);
+        m_pTex.GetAddressOf());
     if (FAILED(hr))
     {
         ELOG("Error : DirectX::CreateDDSTextureFromFile() Failed. filename = %ls, retcode = 0x%x", filename, hr);

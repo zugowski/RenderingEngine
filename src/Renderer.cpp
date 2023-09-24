@@ -53,9 +53,10 @@ struct ShadingConfigure
     int NormalMapUsable;
 
     alignas(16)
-    int AlbedoMapUsable;
-    int MetalicMapUsable;
-    int RoughnessMapUsable;
+    int PbrAlbedoMapUsable;
+    int PbrNormalMapUsable;
+    int PbrMetalicMapUsable;
+    int PbrRoughnessMapUsable;
 };
 
 Renderer::Renderer(HINSTANCE hInst, HWND hWnd, uint32_t width, uint32_t height)
@@ -65,12 +66,14 @@ Renderer::Renderer(HINSTANCE hInst, HWND hWnd, uint32_t width, uint32_t height)
     , m_Height(height)
     , m_FrameIndex(0)
     , m_isLoaded(false)
+    , m_isPbrRender(false)
 {
     // 필수적인 요소 초기화
     InitD3DComponent();
 
     // 추가적인 요소 초기화
     InitD3DAsset();
+    InitD3DPbrAsset();
 }
 
 Renderer::~Renderer()
@@ -232,7 +235,7 @@ void Renderer::Resize(uint32_t width, uint32_t height)
 
 }
 
-void Renderer::Render()
+void Renderer::RenderGeneric()
 {
     {
         m_RotateAngle += 0.010f;
@@ -308,24 +311,89 @@ void Renderer::SetPbrAlbedoMap(const wchar_t* filePath)
 {
     if (!m_isLoaded)
         return;
+
+    DirectX::ResourceUploadBatch batch(m_pDevice.Get());
+    batch.Begin();
+
+    m_Material.SetTexture(
+        0,
+        TU_PBR_ALBEDO,
+        filePath,
+        batch);
+
+    auto future = batch.End(m_pQueue.Get());
+    future.wait();
+
+    auto pShdConfig = m_pShadingConfig->GetPtr<ShadingConfigure>();
+    pShdConfig->PbrAlbedoMapUsable = true;
 }
 
 void Renderer::SetPbrNormalMap(const wchar_t* filePath)
 {
     if (!m_isLoaded)
         return;
+
+    DirectX::ResourceUploadBatch batch(m_pDevice.Get());
+    batch.Begin();
+
+    m_Material.SetTexture(
+        0,
+        TU_PBR_NORMAL,
+        filePath,
+        batch);
+
+    auto future = batch.End(m_pQueue.Get());
+    future.wait();
+
+    auto pShdConfig = m_pShadingConfig->GetPtr<ShadingConfigure>();
+    pShdConfig->PbrNormalMapUsable = true;
 }
 
 void Renderer::SetPbrMetalicMap(const wchar_t* filePath)
 {
     if (!m_isLoaded)
         return;
+
+    DirectX::ResourceUploadBatch batch(m_pDevice.Get());
+    batch.Begin();
+
+    m_Material.SetTexture(
+        0,
+        TU_PBR_METALIC,
+        filePath,
+        batch);
+
+    auto future = batch.End(m_pQueue.Get());
+    future.wait();
+
+    auto pShdConfig = m_pShadingConfig->GetPtr<ShadingConfigure>();
+    pShdConfig->PbrMetalicMapUsable = true;
 }
 
 void Renderer::SetPbrRoughnessMap(const wchar_t* filePath)
 {
     if (!m_isLoaded)
         return;
+
+    DirectX::ResourceUploadBatch batch(m_pDevice.Get());
+    batch.Begin();
+
+    m_Material.SetTexture(
+        0,
+        TU_PBR_ROUGHNESS,
+        filePath,
+        batch);
+
+    auto future = batch.End(m_pQueue.Get());
+    future.wait();
+
+    auto pShdConfig = m_pShadingConfig->GetPtr<ShadingConfigure>();
+    pShdConfig->PbrRoughnessMapUsable = true;
+}
+
+void Renderer::SetPbrRender()
+{
+    m_isPbrRender = true;
 }
 
 void Renderer::SetDirLightDirectionX(float x)
@@ -920,15 +988,271 @@ bool Renderer::InitD3DAsset()
             ptr->ShininessMapUsable = 0;
             ptr->NormalMapUsable    = 0;
 
-            ptr->AlbedoMapUsable    = 0;
-            ptr->MetalicMapUsable   = 0;
-            ptr->RoughnessMapUsable = 0;
+            ptr->PbrAlbedoMapUsable    = 0;
+            ptr->PbrNormalMapUsable    = 0;
+            ptr->PbrMetalicMapUsable   = 0;
+            ptr->PbrRoughnessMapUsable = 0;
 
             m_pShadingConfig = pCB;
         }
     }
 
     return true;
+}
+
+bool Renderer::InitD3DPbrAsset()
+{
+    // root signature 생성
+    {
+        auto flag = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+        flag |= D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS;
+        flag |= D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS;
+        flag |= D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+
+        D3D12_DESCRIPTOR_RANGE range[4] = {};
+        range[0].RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+        range[0].NumDescriptors                    = 1;
+        range[0].BaseShaderRegister                = 0;
+        range[0].RegisterSpace                     = 0;
+        range[0].OffsetInDescriptorsFromTableStart = 0;
+
+        range[1].RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+        range[1].NumDescriptors                    = 1;
+        range[1].BaseShaderRegister                = 1;
+        range[1].RegisterSpace                     = 0;
+        range[1].OffsetInDescriptorsFromTableStart = 0;
+
+        range[2].RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+        range[2].NumDescriptors                    = 1;
+        range[2].BaseShaderRegister                = 2;
+        range[2].RegisterSpace                     = 0;
+        range[2].OffsetInDescriptorsFromTableStart = 0;
+
+        range[3].RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+        range[3].NumDescriptors                    = 1;
+        range[3].BaseShaderRegister                = 3;
+        range[3].RegisterSpace                     = 0;
+        range[3].OffsetInDescriptorsFromTableStart = 0;
+
+        D3D12_ROOT_PARAMETER param[8] = {};
+        param[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
+        param[0].Descriptor.ShaderRegister = 0;
+        param[0].Descriptor.RegisterSpace  = 0;
+        param[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_VERTEX;
+
+        param[1].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
+        param[1].Descriptor.ShaderRegister = 1;
+        param[1].Descriptor.RegisterSpace  = 0;
+        param[1].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
+
+        param[2].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
+        param[2].Descriptor.ShaderRegister = 2;
+        param[2].Descriptor.RegisterSpace  = 0;
+        param[2].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
+
+        param[3].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
+        param[3].Descriptor.ShaderRegister = 3;
+        param[3].Descriptor.RegisterSpace  = 0;
+        param[3].ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
+
+        param[4].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        param[4].DescriptorTable.NumDescriptorRanges = 1;
+        param[4].DescriptorTable.pDescriptorRanges   = &range[0];
+        param[4].ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
+
+        param[5].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        param[5].DescriptorTable.NumDescriptorRanges = 1;
+        param[5].DescriptorTable.pDescriptorRanges   = &range[1];
+        param[5].ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
+
+        param[6].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        param[6].DescriptorTable.NumDescriptorRanges = 1;
+        param[6].DescriptorTable.pDescriptorRanges   = &range[2];
+        param[6].ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
+
+        param[7].ParameterType                       = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        param[7].DescriptorTable.NumDescriptorRanges = 1;
+        param[7].DescriptorTable.pDescriptorRanges   = &range[3];
+        param[7].ShaderVisibility                    = D3D12_SHADER_VISIBILITY_PIXEL;
+
+        D3D12_STATIC_SAMPLER_DESC sampler = {};
+        sampler.Filter           = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+        sampler.AddressU         = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        sampler.AddressV         = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        sampler.AddressW         = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        sampler.MipLODBias       = D3D12_DEFAULT_MIP_LOD_BIAS;
+        sampler.MaxAnisotropy    = 1;
+        sampler.ComparisonFunc   = D3D12_COMPARISON_FUNC_NEVER;
+        sampler.BorderColor      = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+        sampler.MinLOD           = -D3D12_FLOAT32_MAX;
+        sampler.MaxLOD           = +D3D12_FLOAT32_MAX;
+        sampler.ShaderRegister   = 0;
+        sampler.RegisterSpace    = 0;
+        sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+        D3D12_ROOT_SIGNATURE_DESC desc = {};
+        desc.NumParameters     = _countof(param);
+        desc.NumStaticSamplers = 1;
+        desc.pParameters       = param;
+        desc.pStaticSamplers   = &sampler;
+        desc.Flags             = flag;
+
+        ComPtr<ID3DBlob> pBlob;
+        ComPtr<ID3DBlob> pErrorBlob;
+
+        auto hr = D3D12SerializeRootSignature(
+            &desc,
+            D3D_ROOT_SIGNATURE_VERSION_1,
+            pBlob.GetAddressOf(),
+            pErrorBlob.GetAddressOf());
+        if (FAILED(hr))
+        {
+            return false;
+        }
+
+        hr = m_pDevice->CreateRootSignature(
+            0,
+            pBlob->GetBufferPointer(),
+            pBlob->GetBufferSize(),
+            IID_PPV_ARGS(m_pPbrRootSig.GetAddressOf()));
+        if (FAILED(hr))
+        {
+            ELOG("Error : Root Signature Create Failed. retcode = 0x%x", hr);
+            return false;
+        }
+    }
+
+    // pipeline state 생성
+    {
+        std::wstring vsPath;
+        std::wstring psPath;
+
+        vsPath = L"bin/CMake/Debug/PbrVS.cso";
+        psPath = L"bin/CMake/Debug/PbrPS.cso";
+
+        ComPtr<ID3DBlob> pVSBlob;
+        ComPtr<ID3DBlob> pPSBlob;
+
+        auto hr = D3DReadFileToBlob(vsPath.c_str(), pVSBlob.GetAddressOf());
+        if (FAILED(hr))
+        {
+            ELOG("Error : D3DReadFiledToBlob() Failed. path = %ls", vsPath.c_str());
+            return false;
+        }
+
+        hr = D3DReadFileToBlob(psPath.c_str(), pPSBlob.GetAddressOf());
+        if (FAILED(hr))
+        {
+            ELOG("Error : D3DReadFileToBlob() Failed. path = %ls", psPath.c_str());
+            return false;
+        }
+
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
+        desc.InputLayout           = MeshVertex::InputLayout;
+        desc.pRootSignature        = m_pRootSig.Get();
+        desc.VS                    = { pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize() };
+        desc.PS                    = { pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize() };
+        desc.RasterizerState       = DirectX::CommonStates::CullNone;
+        desc.BlendState            = DirectX::CommonStates::Opaque;
+        desc.DepthStencilState     = DirectX::CommonStates::DepthDefault;
+        desc.SampleMask            = UINT_MAX;
+        desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+        desc.NumRenderTargets      = 1;
+        desc.RTVFormats[0]         = m_ColorTarget[0].GetViewDesc().Format;
+        desc.DSVFormat             = m_DepthTarget.GetViewDesc().Format;
+        desc.SampleDesc.Count      = 1;
+        desc.SampleDesc.Quality    = 0;
+
+        hr = m_pDevice->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(m_pPbrPSO.GetAddressOf()));
+        if (FAILED(hr))
+        {
+            ELOG("Error : ID3D12Device::CreateGraphicsPipelineState() Failed. retcode = 0x%x", hr);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void Renderer::Render()
+{
+    if (m_isPbrRender == false)
+        RenderGeneric();
+    else
+        RenderPbr();
+}
+
+void Renderer::RenderPbr()
+{
+    {
+        m_RotateAngle += 0.010f;
+
+        auto pTransform = m_Transform[m_FrameIndex]->GetPtr<Transform>();
+        pTransform->World = DirectX::XMMatrixRotationY(m_RotateAngle);
+    }
+
+    auto pCmd = m_CommandList.Reset();
+
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+    barrier.Transition.pResource = m_ColorTarget[m_FrameIndex].GetResource();
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+    pCmd->ResourceBarrier(1, &barrier);
+
+    auto handleRTV = m_ColorTarget[m_FrameIndex].GetHandleRTV();
+    auto handleDSV = m_DepthTarget.GetHandleDSV();
+
+    pCmd->OMSetRenderTargets(1, &handleRTV->HandleCPU, FALSE, &handleDSV->HandleCPU);
+
+    float clearColor[] = { 0.0f, 0.439f, 0.439f, 1.0f };    // 0.0, 0.52, 0.52
+    pCmd->ClearRenderTargetView(handleRTV->HandleCPU, clearColor, 0, nullptr);
+    pCmd->ClearDepthStencilView(handleDSV->HandleCPU, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+    {
+        ID3D12DescriptorHeap* const pHeaps[] = {
+            m_pPool[DescriptorPool::POOL_TYPE_RES]->GetHeap()
+        };
+
+        pCmd->SetGraphicsRootSignature(m_pPbrRootSig.Get());
+        pCmd->SetDescriptorHeaps(1, pHeaps);
+        pCmd->SetGraphicsRootConstantBufferView(0, m_Transform[m_FrameIndex]->GetAddress());
+        pCmd->SetGraphicsRootConstantBufferView(1, m_pLight->GetAddress());
+        pCmd->SetPipelineState(m_pPbrPSO.Get());
+        pCmd->RSSetViewports(1, &m_Viewport);
+        pCmd->RSSetScissorRects(1, &m_Scissor);
+
+        for (size_t i = 0; i < m_pMesh.size(); ++i)
+        {
+            auto id = m_pMesh[i]->GetMaterialId();
+            pCmd->SetGraphicsRootConstantBufferView(2, m_Material.GetBufferAddress(i));
+            pCmd->SetGraphicsRootConstantBufferView(3, m_pShadingConfig->GetAddress());
+            pCmd->SetGraphicsRootDescriptorTable(4, m_Material.GetTextureHandle(id, TU_PBR_ALBEDO));
+            pCmd->SetGraphicsRootDescriptorTable(5, m_Material.GetTextureHandle(id, TU_PBR_NORMAL));
+            pCmd->SetGraphicsRootDescriptorTable(6, m_Material.GetTextureHandle(id, TU_PBR_METALIC));
+            pCmd->SetGraphicsRootDescriptorTable(7, m_Material.GetTextureHandle(id, TU_PBR_ROUGHNESS));
+            m_pMesh[i]->Draw(pCmd);
+        }
+    }
+
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+    barrier.Transition.pResource = m_ColorTarget[m_FrameIndex].GetResource();
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+    pCmd->ResourceBarrier(1, &barrier);
+
+    pCmd->Close();
+
+    ID3D12CommandList* pLists[] = { pCmd };
+    m_pQueue->ExecuteCommandLists(1, pLists);
+
+    Present(1);
 }
 
 void Renderer::TermD3D()
