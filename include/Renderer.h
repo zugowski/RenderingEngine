@@ -25,13 +25,6 @@ public:
     virtual void Render() = 0;
 
 public:
-    // PBR
-    virtual void SetPbrAlbedoMap(const wchar_t* filePath) = 0;
-    virtual void SetPbrNormalMap(const wchar_t* filePath) = 0;
-    virtual void SetPbrMetalicMap(const wchar_t* filePath) = 0;
-    virtual void SetPbrRoughnessMap(const wchar_t* filePath) = 0;
-    virtual void SetPbrRender() = 0;
-
     // Directional Light
     virtual void SetDirLightDirectionX(float x) = 0;
     virtual void SetDirLightDirectionY(float y) = 0;
@@ -81,13 +74,6 @@ public:
     void Render();
 
 public:
-    // PBR
-    void SetPbrAlbedoMap(const wchar_t* filePath);
-    void SetPbrNormalMap(const wchar_t* filePath);
-    void SetPbrMetalicMap(const wchar_t* filePath);
-    void SetPbrRoughnessMap(const wchar_t* filePath);
-    void SetPbrRender();
-
     // Directional Light
     void SetDirLightDirectionX(float x);
     void SetDirLightDirectionY(float y);
@@ -151,21 +137,12 @@ private:
     ConstantBuffer*                 m_pShadingConfig;
     ConstantBuffer*                 m_pLight;
     ComPtr<ID3D12PipelineState>     m_pPSO;
-    ComPtr<ID3D12PipelineState>     m_pPbrPSO;
     ComPtr<ID3D12RootSignature>     m_pRootSig;
-    ComPtr<ID3D12RootSignature>     m_pPbrRootSig;
     float                           m_RotateAngle;
-
-    bool m_isLoaded;
-    bool m_isPbrRender;
 
 private:
     bool InitD3DComponent();
     bool InitD3DAsset();
-    bool InitD3DPbrAsset();
-
-    void RenderGeneric();
-    void RenderPbr();
 
     void TermD3D();
 

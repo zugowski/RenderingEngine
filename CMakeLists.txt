@@ -66,8 +66,6 @@ set( SOURCE_FILES
 set( SHADER_FILES
     res/SimpleVS.hlsl
     res/SimplePS.hlsl
-    res/PbrVS.hlsl
-    res/PbrPS.hlsl
 )
 
 source_group("Shader Files" FILES ${SHADER_FILES})
