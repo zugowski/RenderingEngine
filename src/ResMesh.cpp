@@ -104,7 +104,7 @@ namespace {
 
         // 좌표 -1.0 ~ 1.0로 정규화
         // TODO: 메쉬 볼륨이 망가지는 버그가 있는데 수정 필요함
-        // Normalize(meshes);
+        Normalize(meshes);
 
         materials.clear();
         materials.resize(m_pScene->mNumMaterials);
@@ -143,18 +143,19 @@ namespace {
             }
         }
 
-        const float xDivisor = xmax - xmin;
-        const float yDivisor = ymax - ymin;
-        const float zDivisor = zmax - zmin;
+        const float mxCoord = std::max(std::max(xmax, ymax), zmax);
+        const float mnCoord = std::min(std::min(xmin, ymin), zmin);
+        
+        const float divisor = mxCoord - mnCoord;
 
         for (auto& mesh : meshes)
         {
             for (int i = 0; i < mesh.Vertices.size(); ++i)
             {
                 MeshVertex& vertex = mesh.Vertices[i];
-                vertex.Position.x = (2.0f * (vertex.Position.x - xmin) / xDivisor) - 1.0f;
-                vertex.Position.y = (2.0f * (vertex.Position.y - ymin) / yDivisor) - 1.0f;
-                vertex.Position.z = (2.0f * (vertex.Position.z - zmin) / zDivisor) - 1.0f;
+                vertex.Position.x = (2.0f * (vertex.Position.x - mnCoord) / divisor) - 1.0f;
+                vertex.Position.y = (2.0f * (vertex.Position.y - mnCoord) / divisor) - 1.0f;
+                vertex.Position.z = (2.0f * (vertex.Position.z - mnCoord) / divisor) - 1.0f;
             }
         }
     }

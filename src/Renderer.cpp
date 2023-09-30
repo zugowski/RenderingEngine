@@ -816,8 +816,8 @@ bool Renderer::InitD3DAsset()
             }
 
             // 카메라 설정
-            auto eyePos    = DirectX::XMVectorSet(0.0f, 300.0f, -500.0f, 0.0f);  //DirectX::XMVectorSet(0.0f, 0.0f, -4.0f, 0.0f);
-            auto targetPos = DirectX::XMVectorSet(0.0f, 100.0f, 0.0f, 0.0f);  //DirectX::XMVectorZero();
+            auto eyePos    = DirectX::XMVectorSet(0.0f, 0.5f, -3.0f, 0.0f); //DirectX::XMVectorSet(0.0f, 300.0f, -500.0f, 0.0f);
+            auto targetPos = DirectX::XMVectorSet(0.0f, 0.5f, 0.0f, 0.0f);  //DirectX::XMVectorZero();
             auto upward    = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
             constexpr auto fovY = DirectX::XMConvertToRadians(37.5f);
