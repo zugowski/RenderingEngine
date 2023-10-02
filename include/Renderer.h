@@ -133,6 +133,7 @@ private:
 
     std::vector<Mesh*>              m_pMesh;
     std::vector<ConstantBuffer*>    m_Transform;
+    std::vector<ConstantBuffer*>    m_TransformShadow;
     Material                        m_Material;
     ConstantBuffer*                 m_pShadingConfig;
     ConstantBuffer*                 m_pLight;

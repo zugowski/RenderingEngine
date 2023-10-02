@@ -1,4 +1,5 @@
 #include "ResMesh.h"
+#include "Mesh.h"
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -143,21 +144,25 @@ namespace {
             }
         }
 
-        const float mxCoord = std::max(std::max(xmax, ymax), zmax);
-        const float mnCoord = std::min(std::min(xmin, ymin), zmin);
-        
-        const float divisor = mxCoord - mnCoord;
+        Mesh::Scale = 1.0f / std::max(xmax - xmin, std::max(ymax - ymin, zmax - zmin));
 
-        for (auto& mesh : meshes)
-        {
-            for (int i = 0; i < mesh.Vertices.size(); ++i)
-            {
-                MeshVertex& vertex = mesh.Vertices[i];
-                vertex.Position.x = (2.0f * (vertex.Position.x - mnCoord) / divisor) - 1.0f;
-                vertex.Position.y = (2.0f * (vertex.Position.y - mnCoord) / divisor) - 1.0f;
-                vertex.Position.z = (2.0f * (vertex.Position.z - mnCoord) / divisor) - 1.0f;
-            }
-        }
+        //DirectX::XMMatrixScaling(scale, scale, scale);
+
+        //const float mxCoord = std::max(std::max(xmax, ymax), zmax);
+        //const float mnCoord = std::min(std::min(xmin, ymin), zmin);
+        //
+        //const float divisor = mxCoord - mnCoord;
+
+        //for (auto& mesh : meshes)
+        //{
+        //    for (int i = 0; i < mesh.Vertices.size(); ++i)
+        //    {
+        //        MeshVertex& vertex = mesh.Vertices[i];
+        //        vertex.Position.x = (2.0f * (vertex.Position.x - mnCoord) / divisor) - 1.0f;
+        //        vertex.Position.y = (2.0f * (vertex.Position.y - mnCoord) / divisor) - 1.0f;
+        //        vertex.Position.z = (2.0f * (vertex.Position.z - mnCoord) / divisor) - 1.0f;
+        //    }
+        //}
     }
 
     void MeshLoader::ParseMesh(ResMesh& dstMesh, const aiMesh* pSrcMesh)

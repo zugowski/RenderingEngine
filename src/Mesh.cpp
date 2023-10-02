@@ -1,5 +1,7 @@
 #include "Mesh.h"
 
+float Mesh::Scale = 1.0f;
+
 Mesh::Mesh()
     : m_MaterialId(UINT32_MAX)
     , m_IndexCount(0)

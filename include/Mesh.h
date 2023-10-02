@@ -7,6 +7,9 @@
 class Mesh
 {
 public:
+    static float Scale;
+
+public:
     Mesh();
     virtual ~Mesh();
 

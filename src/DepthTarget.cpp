@@ -13,6 +13,28 @@ DepthTarget::~DepthTarget()
     Term();
 }
 
+const D3D12_DEPTH_STENCIL_DESC DepthTarget::DepthDesc =
+{
+    TRUE,                             // DepthEnable
+    D3D12_DEPTH_WRITE_MASK_ALL,       // DepthWriteMask
+    D3D12_COMPARISON_FUNC_LESS,       // DepthFunc
+    TRUE,                             // StencilEnable
+    D3D12_DEFAULT_STENCIL_READ_MASK,  // StencilReadMask
+    D3D12_DEFAULT_STENCIL_WRITE_MASK, // StencilWriteMask
+    {
+        D3D12_STENCIL_OP_KEEP,        // StencilFailOp
+        D3D12_STENCIL_OP_KEEP,        // StencilDepthFailOp
+        D3D12_STENCIL_OP_INCR,        // StencilPassOp
+        D3D12_COMPARISON_FUNC_EQUAL   // StencilFunc
+    }, // FrontFace
+    {
+        D3D12_STENCIL_OP_KEEP,        // StencilFailOp
+        D3D12_STENCIL_OP_KEEP,        // StencilDepthFailOp
+        D3D12_STENCIL_OP_INCR,        // StencilPassOp
+        D3D12_COMPARISON_FUNC_ALWAYS  // StencilFunc
+    } // BackFace
+};
+
 bool DepthTarget::Init
 (
     ID3D12Device*   pDevice,

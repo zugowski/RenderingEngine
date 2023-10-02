@@ -232,11 +232,13 @@ void Renderer::Resize(uint32_t width, uint32_t height)
 
 void Renderer::Render()
 {
+    auto pTransform = m_Transform[m_FrameIndex]->GetPtr<Transform>();
+
     {
         m_RotateAngle += 0.010f;
-
-        auto pTransform = m_Transform[m_FrameIndex]->GetPtr<Transform>();
-        pTransform->World = DirectX::XMMatrixRotationY(m_RotateAngle);
+        DirectX::XMMATRIX S = DirectX::XMMatrixScaling(Mesh::Scale, Mesh::Scale, Mesh::Scale);
+        DirectX::XMMATRIX R = DirectX::XMMatrixRotationY(m_RotateAngle);
+        pTransform->World = S * R;
     }
 
     auto pCmd = m_CommandList.Reset();
@@ -267,7 +269,7 @@ void Renderer::Render()
 
         pCmd->SetGraphicsRootSignature(m_pRootSig.Get());
         pCmd->SetDescriptorHeaps(1, pHeaps);
-        pCmd->SetGraphicsRootConstantBufferView(0, m_Transform[m_FrameIndex]->GetAddress());
+        //pCmd->SetGraphicsRootConstantBufferView(0, m_Transform[m_FrameIndex]->GetAddress());
         pCmd->SetGraphicsRootConstantBufferView(1, m_pLight->GetAddress());
         pCmd->SetPipelineState(m_pPSO.Get());
         pCmd->RSSetViewports(1, &m_Viewport);
@@ -276,11 +278,24 @@ void Renderer::Render()
         for (size_t i = 0; i < m_pMesh.size(); ++i)
         {
             auto id = m_pMesh[i]->GetMaterialId();
+            pCmd->SetGraphicsRootConstantBufferView(0, m_Transform[m_FrameIndex]->GetAddress());
             pCmd->SetGraphicsRootConstantBufferView(2, m_Material.GetBufferAddress(i));
             pCmd->SetGraphicsRootConstantBufferView(3, m_pShadingConfig->GetAddress());
             pCmd->SetGraphicsRootDescriptorTable(4, m_Material.GetTextureHandle(id, TU_DIFFUSE));
             pCmd->SetGraphicsRootDescriptorTable(5, m_Material.GetTextureHandle(id, TU_NORMAL));
             pCmd->SetGraphicsRootDescriptorTable(6, m_Material.GetTextureHandle(id, TU_SPECULAR));
+            m_pMesh[i]->Draw(pCmd);
+
+            // 그림자 렌더링
+            pCmd->SetGraphicsRootConstantBufferView(0, m_TransformShadow[m_FrameIndex]->GetAddress());
+
+            auto pLight = m_Transform[m_FrameIndex]->GetPtr<LightBuffer>();
+            DirectX::XMVECTOR shadowPlane = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+            DirectX::XMVECTOR dirLightDir = DirectX::XMLoadFloat3(&pLight->DirLightDirection);
+            DirectX::XMMATRIX S = DirectX::XMMatrixShadow(shadowPlane, dirLightDir);
+
+            auto pTransformShadow = m_TransformShadow[m_FrameIndex]->GetPtr<Transform>();
+            pTransformShadow->World = pTransform->World * S;
             m_pMesh[i]->Draw(pCmd);
         }
     }
@@ -779,7 +794,7 @@ bool Renderer::InitD3DAsset()
         desc.PS                    = { pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize() };
         desc.RasterizerState       = DirectX::CommonStates::CullNone;
         desc.BlendState            = DirectX::CommonStates::Opaque;
-        desc.DepthStencilState     = DirectX::CommonStates::DepthDefault;
+        desc.DepthStencilState     = DepthTarget::DepthDesc; //DirectX::CommonStates::DepthDefault;
         desc.SampleMask            = UINT_MAX;
         desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         desc.NumRenderTargets      = 1;
@@ -816,8 +831,8 @@ bool Renderer::InitD3DAsset()
             }
 
             // 카메라 설정
-            auto eyePos    = DirectX::XMVectorSet(0.0f, 0.5f, -3.0f, 0.0f); //DirectX::XMVectorSet(0.0f, 300.0f, -500.0f, 0.0f);
-            auto targetPos = DirectX::XMVectorSet(0.0f, 0.5f, 0.0f, 0.0f);  //DirectX::XMVectorZero();
+            auto eyePos    = DirectX::XMVectorSet(0.0f, 0.4f, -2.0f, 0.0f); //DirectX::XMVectorSet(0.0f, 300.0f, -500.0f, 0.0f);
+            auto targetPos = DirectX::XMVectorSet(0.0f, 0.4f, 0.0f, 0.0f);  //DirectX::XMVectorZero();
             auto upward    = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
             constexpr auto fovY = DirectX::XMConvertToRadians(37.5f);
@@ -830,6 +845,40 @@ bool Renderer::InitD3DAsset()
             ptr->Proj  = DirectX::XMMatrixPerspectiveFovRH(fovY, aspect, 1.0f, 1000.0f);
 
             m_Transform.push_back(pCB);
+        }
+
+        m_TransformShadow.reserve(FrameCount);
+
+        for (auto i = 0; i < FrameCount; ++i)
+        {
+            auto pCB = new (std::nothrow) ConstantBuffer();
+            if (pCB == nullptr)
+            {
+                ELOG("Error : Out of memory.");
+                return false;
+            }
+
+            if (!pCB->Init(m_pDevice.Get(), m_pPool[DescriptorPool::POOL_TYPE_RES], sizeof(Transform) * 2))
+            {
+                ELOG("Error : ConstantBuffer::Init() Failed.");
+                return false;
+            }
+
+            // 카메라 설정
+            auto eyePos = DirectX::XMVectorSet(0.0f, 0.4f, -2.0f, 0.0f); //DirectX::XMVectorSet(0.0f, 300.0f, -500.0f, 0.0f);
+            auto targetPos = DirectX::XMVectorSet(0.0f, 0.4f, 0.0f, 0.0f);  //DirectX::XMVectorZero();
+            auto upward = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+            constexpr auto fovY = DirectX::XMConvertToRadians(37.5f);
+            auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
+
+            // 변환행렬 설정
+            auto ptr = pCB->GetPtr<Transform>();
+            ptr->World = DirectX::XMMatrixIdentity();
+            ptr->View = DirectX::XMMatrixLookAtRH(eyePos, targetPos, upward);
+            ptr->Proj = DirectX::XMMatrixPerspectiveFovRH(fovY, aspect, 1.0f, 1000.0f);
+
+            m_TransformShadow.push_back(pCB);
         }
 
         {
