@@ -237,7 +237,7 @@ void Renderer::Resize(uint32_t width, uint32_t height)
 
 void Renderer::Render()
 {
-    auto pTransform = m_Transform[m_FrameIndex]->GetPtr<Transform>();
+    auto pTransform = m_Transform->GetPtr<Transform>();
 
     {
         m_RotateAngle += 0.010f;
@@ -283,7 +283,7 @@ void Renderer::Render()
         for (size_t i = 0; i < m_pMesh.size(); ++i)
         {
             auto id = m_pMesh[i]->GetMaterialId();
-            pCmd->SetGraphicsRootConstantBufferView(0, m_Transform[m_FrameIndex]->GetAddress());
+            pCmd->SetGraphicsRootConstantBufferView(0, m_Transform->GetAddress());
             pCmd->SetGraphicsRootConstantBufferView(2, m_Material.GetBufferAddress(i));
             pCmd->SetGraphicsRootConstantBufferView(3, m_pShadingConfig->GetAddress());
             pCmd->SetGraphicsRootDescriptorTable(4, m_Material.GetTextureHandle(id, TU_DIFFUSE));
@@ -294,7 +294,7 @@ void Renderer::Render()
             // 그림자 렌더링
             pCmd->SetGraphicsRootConstantBufferView(0, m_TransformShadow[m_FrameIndex]->GetAddress());
 
-            auto pLight = m_Transform[m_FrameIndex]->GetPtr<LightBuffer>();
+            auto pLight = m_Transform->GetPtr<LightBuffer>();
             DirectX::XMVECTOR shadowPlane = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
             DirectX::XMVECTOR dirLightDir = DirectX::XMLoadFloat3(&pLight->DirLightDirection);
             DirectX::XMMATRIX S = DirectX::XMMatrixShadow(shadowPlane, dirLightDir);
@@ -782,39 +782,34 @@ bool Renderer::InitD3DAsset()
 
     // 변환행렬 설정 및 상수버퍼 생성
     {
-        m_Transform.reserve(FrameCount);
-
-        for (auto i = 0; i < FrameCount; ++i)
+        auto pCB = new (std::nothrow) ConstantBuffer();
+        if (pCB == nullptr)
         {
-            auto pCB = new (std::nothrow) ConstantBuffer();
-            if (pCB == nullptr)
-            {
-                ELOG("Error : Out of memory.");
-                return false;
-            }
-
-            if (!pCB->Init(m_pDevice.Get(), m_pPool[DescriptorPool::POOL_TYPE_RES], sizeof(Transform) * 2))
-            {
-                ELOG("Error : ConstantBuffer::Init() Failed.");
-                return false;
-            }
-
-            // 카메라 설정
-            auto eyePos    = DirectX::XMVectorSet(0.0f, 0.4f, -2.0f, 0.0f); //DirectX::XMVectorSet(0.0f, 300.0f, -500.0f, 0.0f);
-            auto targetPos = DirectX::XMVectorSet(0.0f, 0.4f, 0.0f, 0.0f);  //DirectX::XMVectorZero();
-            auto upward    = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-            constexpr auto fovY = DirectX::XMConvertToRadians(37.5f);
-            auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
-
-            // 변환행렬 설정
-            auto ptr = pCB->GetPtr<Transform>();
-            ptr->World = DirectX::XMMatrixIdentity();
-            ptr->View  = DirectX::XMMatrixLookAtRH(eyePos, targetPos, upward);
-            ptr->Proj  = DirectX::XMMatrixPerspectiveFovRH(fovY, aspect, 1.0f, 1000.0f);
-
-            m_Transform.push_back(pCB);
+            ELOG("Error : Out of memory.");
+            return false;
         }
+
+        if (!pCB->Init(m_pDevice.Get(), m_pPool[DescriptorPool::POOL_TYPE_RES], sizeof(Transform) * 2))
+        {
+            ELOG("Error : ConstantBuffer::Init() Failed.");
+            return false;
+        }
+
+        // 카메라 설정
+        auto eyePos = DirectX::XMVectorSet(0.0f, 0.4f, -2.0f, 0.0f); //DirectX::XMVectorSet(0.0f, 300.0f, -500.0f, 0.0f);
+        auto targetPos = DirectX::XMVectorSet(0.0f, 0.4f, 0.0f, 0.0f);  //DirectX::XMVectorZero();
+        auto upward = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+        constexpr auto fovY = DirectX::XMConvertToRadians(37.5f);
+        auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
+
+        // 변환행렬 설정
+        auto ptr = pCB->GetPtr<Transform>();
+        ptr->World = DirectX::XMMatrixIdentity();
+        ptr->View = DirectX::XMMatrixLookAtRH(eyePos, targetPos, upward);
+        ptr->Proj = DirectX::XMMatrixPerspectiveFovRH(fovY, aspect, 1.0f, 1000.0f);
+
+        m_Transform = pCB;
 
         m_TransformShadow.reserve(FrameCount);
 

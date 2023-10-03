@@ -58,9 +58,7 @@ bool VertexBuffer::Init(ID3D12Device* pDevice, size_t size, size_t stride, const
     {
         void* ptr = Map();
         if (ptr == nullptr)
-        {
             return false;
-        }
 
         memcpy(ptr, pInitData, size);
 

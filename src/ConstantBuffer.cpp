@@ -22,9 +22,7 @@ bool ConstantBuffer::Init
 )
 {
     if (pDevice == nullptr || pPool == nullptr || size == 0)
-    {
         return false;
-    }
 
     assert(m_pPool == nullptr);
     assert(m_pHandle == nullptr);
@@ -63,15 +61,11 @@ bool ConstantBuffer::Init
         nullptr,
         IID_PPV_ARGS(m_pCB.GetAddressOf()));
     if (FAILED(hr))
-    {
         return false;
-    }
 
     hr = m_pCB->Map(0, nullptr, &m_pMappedPtr);
     if (FAILED(hr))
-    {
         return false;
-    }
 
     m_Desc.BufferLocation = m_pCB->GetGPUVirtualAddress();
     m_Desc.SizeInBytes = UINT(sizeAligned);
@@ -113,9 +107,7 @@ D3D12_GPU_VIRTUAL_ADDRESS ConstantBuffer::GetAddress() const
 D3D12_CPU_DESCRIPTOR_HANDLE ConstantBuffer::GetHandleCPU() const
 {
     if (m_pHandle == nullptr)
-    {
         return D3D12_CPU_DESCRIPTOR_HANDLE();
-    }
 
     return m_pHandle->HandleCPU;
 }
@@ -123,9 +115,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE ConstantBuffer::GetHandleCPU() const
 D3D12_GPU_DESCRIPTOR_HANDLE ConstantBuffer::GetHandleGPU() const
 {
     if (m_pHandle == nullptr)
-    {
         return D3D12_GPU_DESCRIPTOR_HANDLE();
-    }
 
     return m_pHandle->HandleGPU;
 }

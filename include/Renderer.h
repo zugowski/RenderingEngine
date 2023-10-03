@@ -135,7 +135,7 @@ private:
     D3D12_RECT                 m_Scissor;
 
     std::vector<Mesh*>           m_pMesh;
-    std::vector<ConstantBuffer*> m_Transform;
+    ConstantBuffer*              m_Transform;
     std::vector<ConstantBuffer*> m_TransformShadow;
     Material                     m_Material;
     ConstantBuffer*              m_pShadingConfig;
