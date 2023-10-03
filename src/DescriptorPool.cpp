@@ -80,7 +80,7 @@ ID3D12DescriptorHeap* const DescriptorPool::GetHeap() const
     return m_pHeap.Get();
 }
 
-bool DescriptorPool::Create
+void DescriptorPool::Create
 (
     ID3D12Device*                       pDevice,
     const D3D12_DESCRIPTOR_HEAP_DESC*   pDesc,
@@ -88,15 +88,11 @@ bool DescriptorPool::Create
 )
 {
     if (pDevice == nullptr || pDesc == nullptr || ppPool == nullptr)
-    {
-        return false;
-    }
+        __debugbreak();
 
     auto instance = new (std::nothrow) DescriptorPool();
     if (instance == nullptr)
-    {
-        return false;
-    }
+        __debugbreak();
 
     auto hr = pDevice->CreateDescriptorHeap(
         pDesc,
@@ -105,19 +101,17 @@ bool DescriptorPool::Create
     if (FAILED(hr))
     {
         instance->Release();
-        return false;
+        __debugbreak();
     }
 
     if (!instance->m_Pool.Init(pDesc->NumDescriptors))
     {
         instance->Release();
-        return false;
+        __debugbreak();
     }
 
     instance->m_DescriptorSize =
         pDevice->GetDescriptorHandleIncrementSize(pDesc->Type);
 
     *ppPool = instance;
-
-    return true;
 }

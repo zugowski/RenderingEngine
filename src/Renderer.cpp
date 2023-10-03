@@ -64,6 +64,7 @@ Renderer::Renderer(HINSTANCE hInst, HWND hWnd, uint32_t width, uint32_t height)
     , m_hWnd(hWnd)
     , m_Width(width)
     , m_Height(height)
+    , m_pDevice(nullptr)
     , m_FrameIndex(0)
 {
     // 필수적인 요소 초기화
@@ -72,6 +73,10 @@ Renderer::Renderer(HINSTANCE hInst, HWND hWnd, uint32_t width, uint32_t height)
     // 추가적인 요소 초기화
     InitD3DAsset();
 }
+
+D3D_FEATURE_LEVEL Renderer::FeatureLevel = D3D_FEATURE_LEVEL_12_0;
+DXGI_FORMAT Renderer::BackBufferFormat   = DXGI_FORMAT_R8G8B8A8_UNORM;
+UINT Renderer::Msaa4xQuality             = 0;
 
 Renderer::~Renderer()
 {
@@ -463,6 +468,7 @@ void Renderer::SetSptLightAngle(int angle)
 
 bool Renderer::InitD3DComponent()
 {
+    // WICTextureLoader 사용 용도
 #if (_WIN32_WINNT >= 0x0A00 /*_WIN32_WINNT_WIN10*/)
     Microsoft::WRL::Wrappers::RoInitializeWrapper initialize(RO_INIT_MULTITHREADED);
     if (FAILED(initialize))
@@ -470,183 +476,146 @@ bool Renderer::InitD3DComponent()
 #else
     HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (FAILED(hr))
-        __debugbreak();
+        __debugbreak(); 
 #endif
 
+    HRESULT hr;
+    
 #if defined(DEBUG) || defined(_DEBUG)
+    // debug layer 활성화
+    ComPtr<ID3D12Debug> pDebug;
+    hr = D3D12GetDebugInterface(IID_PPV_ARGS(pDebug.GetAddressOf()));
+    if (SUCCEEDED(hr))
     {
-        ComPtr<ID3D12Debug> pDebug;
-        auto hr = D3D12GetDebugInterface(IID_PPV_ARGS(pDebug.GetAddressOf()));
-        if (SUCCEEDED(hr))
-        {
-            pDebug->EnableDebugLayer();
-        }
+        pDebug->EnableDebugLayer();
     }
 
+    // PIX attach 용도 설정
     if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
         LoadLibrary(GetLatestWinPixGpuCapturerPath().c_str());
 #endif
 
-    auto hr = D3D12CreateDevice(
-        nullptr,
+    // device 생성
+    const D3D_FEATURE_LEVEL FeatureLevels[] =
+    {
+        D3D_FEATURE_LEVEL_10_0,
+        D3D_FEATURE_LEVEL_10_1,
         D3D_FEATURE_LEVEL_11_0,
-        IID_PPV_ARGS(m_pDevice.GetAddressOf()));
+        D3D_FEATURE_LEVEL_11_1,
+        D3D_FEATURE_LEVEL_12_0,
+        D3D_FEATURE_LEVEL_12_1,
+        D3D_FEATURE_LEVEL_12_2
+    };
+
+    for (int i = _countof(FeatureLevels) - 1; i >= 0; --i)
+    {
+        hr = D3D12CreateDevice(
+            nullptr,
+            FeatureLevels[i],
+            IID_PPV_ARGS(m_pDevice.GetAddressOf()));
+
+        if (SUCCEEDED(hr))
+        {
+            FeatureLevel = FeatureLevels[i];
+            break;
+        }
+    }
+
+    if (m_pDevice == nullptr)
+        __debugbreak();
+
+    // fence 생성
+    m_Fence.Init(m_pDevice.Get());
+
+    // command queue 생성
+    D3D12_COMMAND_QUEUE_DESC cmdQueueDesc = {};
+    cmdQueueDesc.Type     = D3D12_COMMAND_LIST_TYPE_DIRECT;
+    cmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+    cmdQueueDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
+    cmdQueueDesc.NodeMask = 0;
+
+    hr = m_pDevice->CreateCommandQueue(&cmdQueueDesc, IID_PPV_ARGS(m_pQueue.GetAddressOf()));
     if (FAILED(hr))
+        __debugbreak();
+
+    // command list, command allocator 생성
+    m_CommandList.Init(
+        m_pDevice.Get(), 
+        D3D12_COMMAND_LIST_TYPE_DIRECT, 
+        FrameCount);
+
+    // 4X MSAA 품질 수준 지원 점검
+    D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msQualityLevels;
+    msQualityLevels.Format           = BackBufferFormat;
+    msQualityLevels.SampleCount      = 4;
+    msQualityLevels.Flags            = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
+    msQualityLevels.NumQualityLevels = 0;
+
+    hr = m_pDevice->CheckFeatureSupport(
+        D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
+        &msQualityLevels,
+        sizeof(msQualityLevels));
+    if (FAILED(hr))
+        __debugbreak();
+
+    Msaa4xQuality = msQualityLevels.NumQualityLevels;
+    assert(Msaa4xQuality > 0 && "Unexpected MSAA quality level.");
+
+    // 스왑체인 생성
+    CreateSwapChain();
+
+    // 디스크립터 힙 생성
+    D3D12_DESCRIPTOR_HEAP_DESC dhDesc = {};
+
+    dhDesc.NodeMask       = 1;
+    dhDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    dhDesc.NumDescriptors = 512;
+    dhDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    DescriptorPool::Create(m_pDevice.Get(), &dhDesc, &m_pPool[DescriptorPool::POOL_TYPE_RES]);
+
+    dhDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+    dhDesc.NumDescriptors = 256;
+    dhDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    DescriptorPool::Create(m_pDevice.Get(), &dhDesc, &m_pPool[DescriptorPool::POOL_TYPE_SMP]);
+
+    dhDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+    dhDesc.NumDescriptors = 512;
+    dhDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    DescriptorPool::Create(m_pDevice.Get(), &dhDesc, &m_pPool[DescriptorPool::POOL_TYPE_RTV]);
+
+    dhDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+    dhDesc.NumDescriptors = 512;
+    dhDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    DescriptorPool::Create(m_pDevice.Get(), &dhDesc, &m_pPool[DescriptorPool::POOL_TYPE_DSV]);
+
+    // RTV 생성
+    for (auto i = 0u; i < FrameCount; ++i)
     {
-        return false;
-    }
-
-    {
-        D3D12_COMMAND_QUEUE_DESC desc = {};
-        desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-        desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-        desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-        desc.NodeMask = 0;
-
-        hr = m_pDevice->CreateCommandQueue(&desc, IID_PPV_ARGS(m_pQueue.GetAddressOf()));
-        if (FAILED(hr))
-        {
-            return false;
-        }
-    }
-
-    {
-        ComPtr<IDXGIFactory4> pFactory;
-        hr = CreateDXGIFactory1(IID_PPV_ARGS(pFactory.GetAddressOf()));
-        if (FAILED(hr))
-        {
-            return false;
-        }
-
-        DXGI_SWAP_CHAIN_DESC desc = {};
-        desc.BufferDesc.Width = m_Width;
-        desc.BufferDesc.Height = m_Height;
-        desc.BufferDesc.RefreshRate.Numerator = 60;
-        desc.BufferDesc.RefreshRate.Denominator = 1;
-        desc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-        desc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
-        desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        desc.SampleDesc.Count = 1;
-        desc.SampleDesc.Quality = 0;
-        desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-        desc.BufferCount = FrameCount;
-        desc.OutputWindow = m_hWnd;
-        desc.Windowed = TRUE;
-        desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-        desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-
-        ComPtr<IDXGISwapChain> pSwapChain;
-        hr = pFactory->CreateSwapChain(m_pQueue.Get(), &desc, pSwapChain.GetAddressOf());
-        if (FAILED(hr))
-        {
-            return false;
-        }
-
-        hr = pSwapChain.As(&m_pSwapChain);
-        if (FAILED(hr))
-        {
-            return false;
-        }
-
-        m_FrameIndex = m_pSwapChain->GetCurrentBackBufferIndex();
-
-        pFactory.Reset();
-        pSwapChain.Reset();
-    }
-
-    {
-        D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-
-        desc.NodeMask = 1;
-        desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-        desc.NumDescriptors = 512;
-        desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        if (!DescriptorPool::Create(m_pDevice.Get(), &desc, &m_pPool[DescriptorPool::POOL_TYPE_RES]))
-        {
-            return false;
-        }
-
-        desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-        desc.NumDescriptors = 256;
-        desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        if (!DescriptorPool::Create(m_pDevice.Get(), &desc, &m_pPool[DescriptorPool::POOL_TYPE_SMP]))
-        {
-            return false;
-        }
-
-        desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-        desc.NumDescriptors = 512;
-        desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-        if (!DescriptorPool::Create(m_pDevice.Get(), &desc, &m_pPool[DescriptorPool::POOL_TYPE_RTV]))
-        {
-            return false;
-        }
-
-        desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-        desc.NumDescriptors = 512;
-        desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-        if (!DescriptorPool::Create(m_pDevice.Get(), &desc, &m_pPool[DescriptorPool::POOL_TYPE_DSV]))
-        {
-            return false;
-        }
-    }
-
-    {
-        if (!m_CommandList.Init(
+        m_ColorTarget[i].InitFromBackBuffer(
             m_pDevice.Get(),
-            D3D12_COMMAND_LIST_TYPE_DIRECT,
-            FrameCount))
-        {
-            return false;
-        }
+            m_pPool[DescriptorPool::POOL_TYPE_RTV],
+            i,
+            m_pSwapChain.Get());
     }
 
-    {
-        for (auto i = 0u; i < FrameCount; ++i)
-        {
-            if (!m_ColorTarget[i].InitFromBackBuffer(
-                m_pDevice.Get(),
-                m_pPool[DescriptorPool::POOL_TYPE_RTV],
-                i,
-                m_pSwapChain.Get()))
-            {
-                return false;
-            }
-        }
-    }
+    m_DepthTarget.Init(
+        m_pDevice.Get(),
+        m_pPool[DescriptorPool::POOL_TYPE_DSV],
+        m_Width,
+        m_Height,
+        DXGI_FORMAT_D32_FLOAT);
 
-    {
-        if (!m_DepthTarget.Init(
-            m_pDevice.Get(),
-            m_pPool[DescriptorPool::POOL_TYPE_DSV],
-            m_Width,
-            m_Height,
-            DXGI_FORMAT_D32_FLOAT))
-        {
-            return false;
-        }
-    }
+    m_Viewport.TopLeftX = 0.0f;
+    m_Viewport.TopLeftY = 0.0f;
+    m_Viewport.Width    = float(m_Width);
+    m_Viewport.Height   = float(m_Height);
+    m_Viewport.MinDepth = 0.0f;
+    m_Viewport.MaxDepth = 1.0f;
 
-    if (!m_Fence.Init(m_pDevice.Get()))
-    {
-        return false;
-    }
-
-    {
-        m_Viewport.TopLeftX = 0.0f;
-        m_Viewport.TopLeftY = 0.0f;
-        m_Viewport.Width    = float(m_Width);
-        m_Viewport.Height   = float(m_Height);
-        m_Viewport.MinDepth = 0.0f;
-        m_Viewport.MaxDepth = 1.0f;
-    }
-
-    {
-        m_Scissor.left = 0;
-        m_Scissor.right = m_Width;
-        m_Scissor.top = 0;
-        m_Scissor.bottom = m_Height;
-    }
+    m_Scissor.left   = 0;
+    m_Scissor.right  = m_Width;
+    m_Scissor.top    = 0;
+    m_Scissor.bottom = m_Height;
 
     return true;
 }
@@ -980,6 +949,50 @@ void Renderer::TermD3D()
     m_pSwapChain.Reset();
     m_pQueue.Reset();
     m_pDevice.Reset();
+}
+
+void Renderer::CreateSwapChain()
+{
+    m_pSwapChain.Reset();
+
+    ComPtr<IDXGIFactory4> pFactory;
+    auto hr = CreateDXGIFactory1(IID_PPV_ARGS(pFactory.GetAddressOf()));
+    if (FAILED(hr))
+        __debugbreak();
+
+    DXGI_SWAP_CHAIN_DESC scDesc = {};
+    scDesc.BufferDesc.Width                   = m_Width;
+    scDesc.BufferDesc.Height                  = m_Height;
+    scDesc.BufferDesc.RefreshRate.Numerator   = 60;
+    scDesc.BufferDesc.RefreshRate.Denominator = 1;
+    scDesc.BufferDesc.ScanlineOrdering        = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+    scDesc.BufferDesc.Scaling                 = DXGI_MODE_SCALING_UNSPECIFIED;
+    scDesc.BufferDesc.Format                  = BackBufferFormat;
+    scDesc.SampleDesc.Count                   = 1;
+    scDesc.SampleDesc.Quality                 = 0;
+    scDesc.BufferUsage                        = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    scDesc.BufferCount                        = FrameCount;
+    scDesc.OutputWindow                       = m_hWnd;
+    scDesc.Windowed                           = TRUE;
+    scDesc.SwapEffect                         = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    scDesc.Flags                              = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+
+    ComPtr<IDXGISwapChain> pSwapChain;
+    hr = pFactory->CreateSwapChain(
+        m_pQueue.Get(), 
+        &scDesc, 
+        pSwapChain.GetAddressOf());
+    if (FAILED(hr))
+        __debugbreak();
+
+    hr = pSwapChain.As(&m_pSwapChain);
+    if (FAILED(hr))
+        __debugbreak();
+
+    m_FrameIndex = m_pSwapChain->GetCurrentBackBufferIndex();
+
+    pFactory.Reset();
+    pSwapChain.Reset();
 }
 
 void Renderer::Present(uint32_t interval)

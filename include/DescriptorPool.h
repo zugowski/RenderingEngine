@@ -34,7 +34,7 @@ public:
         POOL_COUNT = 4,
     };
 
-    static bool Create(
+    static void Create(
         ID3D12Device*                       pDevice,
         const D3D12_DESCRIPTOR_HEAP_DESC*   pDesc,
         DescriptorPool**                    ppPool);

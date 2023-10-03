@@ -9,7 +9,7 @@ public:
     Fence();
     ~Fence();
 
-    bool Init(ID3D12Device* pDevice);
+    void Init(ID3D12Device* pDevice);
     void Term();
     void Wait(ID3D12CommandQueue* pQueue, UINT timeout);
     void Sync(ID3D12CommandQueue* pQueue);

@@ -2,8 +2,7 @@
 
 CommandList::CommandList()
     : m_pCmdList(nullptr)
-    , m_pAllocators()
-    , m_Index(0)
+    , m_pAllocator(nullptr)
 {
 }
 
@@ -12,71 +11,50 @@ CommandList::~CommandList()
     Term();
 }
 
-bool CommandList::Init(ID3D12Device* pDevice, D3D12_COMMAND_LIST_TYPE type, uint32_t count)
+void CommandList::Init(ID3D12Device* pDevice, D3D12_COMMAND_LIST_TYPE type, uint32_t count)
 {
     if (pDevice == nullptr || count == 0)
-    {
-        return false;
-    }
-
-    m_pAllocators.resize(count);
+        __debugbreak();
 
     for (auto i = 0u; i < count; ++i)
     {
         auto hr = pDevice->CreateCommandAllocator(
-            type, IID_PPV_ARGS(m_pAllocators[i].GetAddressOf()));
+            type, IID_PPV_ARGS(m_pAllocator.GetAddressOf()));
         if (FAILED(hr))
-        {
-            return false;
-        }
+            __debugbreak();
     }
 
-    {
-        auto hr = pDevice->CreateCommandList(
-            1,
-            type,
-            m_pAllocators[0].Get(),
-            nullptr,
-            IID_PPV_ARGS(m_pCmdList.GetAddressOf()));
-        if (FAILED(hr))
-        {
-            return false;
-        }
+    auto hr = pDevice->CreateCommandList(
+        1,
+        type,
+        m_pAllocator.Get(),
+        nullptr,
+        IID_PPV_ARGS(m_pCmdList.GetAddressOf()));
+    if (FAILED(hr))
+        __debugbreak();
 
-        m_pCmdList->Close();
-    }
-
-    m_Index = 0;
-    return true;
+    m_pCmdList->Close();
 }
 
 void CommandList::Term()
 {
     m_pCmdList.Reset();
-
-    for (size_t i = 0; i < m_pAllocators.size(); ++i)
-    {
-        m_pAllocators[i].Reset();
-    }
-
-    m_pAllocators.clear();
-    m_pAllocators.shrink_to_fit();
+    m_pAllocator.Reset();
 }
 
 ID3D12GraphicsCommandList* CommandList::Reset()
 {
-    auto hr = m_pAllocators[m_Index]->Reset();
+    auto hr = m_pAllocator->Reset();
     if (FAILED(hr))
     {
         return nullptr;
     }
 
-    hr = m_pCmdList->Reset(m_pAllocators[m_Index].Get(), nullptr);
+    hr = m_pCmdList->Reset(m_pAllocator.Get(), nullptr);
     if (FAILED(hr))
     {
         return nullptr;
     }
 
-    m_Index = (m_Index + 1) % uint32_t(m_pAllocators.size());
     return m_pCmdList.Get();
 }

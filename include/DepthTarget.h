@@ -16,7 +16,7 @@ public:
     DepthTarget();
     ~DepthTarget();
 
-    bool Init(
+    void Init(
         ID3D12Device*   pDevice,
         DescriptorPool* pPoolDSV,
         uint32_t        width,

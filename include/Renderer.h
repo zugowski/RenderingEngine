@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <d3d12.h>
 #include <dxgi1_4.h>
+#include <d3dcommon.h>
 #include <d3dcompiler.h>
 #include <ComPtr.h>
 #include <ConstantBuffer.h>
@@ -111,41 +112,45 @@ public:
     void SetSptLightAngle(int angle);
 
 private:
-    static const uint32_t FrameCount = 2;
-    static const D3D_FEATURE_LEVEL FeatureLevel = D3D_FEATURE_LEVEL_12_0;
+    static const uint32_t    FrameCount = 2;
+    static D3D_FEATURE_LEVEL FeatureLevel;
+    static DXGI_FORMAT       BackBufferFormat;
+    static UINT              Msaa4xQuality;
 
-    HINSTANCE   m_hInst;
-    HWND        m_hWnd;
-    uint32_t    m_Width;
-    uint32_t    m_Height;
+    HINSTANCE m_hInst;
+    HWND      m_hWnd;
+    uint32_t  m_Width;
+    uint32_t  m_Height;
 
-    ComPtr<ID3D12Device>        m_pDevice;
-    ComPtr<ID3D12CommandQueue>  m_pQueue;
-    ComPtr<IDXGISwapChain3>     m_pSwapChain;
-    RenderTarget                m_ColorTarget[FrameCount];
-    DepthTarget                 m_DepthTarget;
-    DescriptorPool*             m_pPool[DescriptorPool::POOL_COUNT];
-    CommandList                 m_CommandList;
-    Fence                       m_Fence;
-    uint32_t                    m_FrameIndex;
-    D3D12_VIEWPORT              m_Viewport;
-    D3D12_RECT                  m_Scissor;
+    ComPtr<ID3D12Device>       m_pDevice;
+    ComPtr<ID3D12CommandQueue> m_pQueue;
+    ComPtr<IDXGISwapChain3>    m_pSwapChain;
+    RenderTarget               m_ColorTarget[FrameCount];
+    DepthTarget                m_DepthTarget;
+    DescriptorPool*            m_pPool[DescriptorPool::POOL_COUNT];
+    CommandList                m_CommandList;
+    Fence                      m_Fence;
+    uint32_t                   m_FrameIndex;
+    D3D12_VIEWPORT             m_Viewport;
+    D3D12_RECT                 m_Scissor;
 
-    std::vector<Mesh*>              m_pMesh;
-    std::vector<ConstantBuffer*>    m_Transform;
-    std::vector<ConstantBuffer*>    m_TransformShadow;
-    Material                        m_Material;
-    ConstantBuffer*                 m_pShadingConfig;
-    ConstantBuffer*                 m_pLight;
-    ComPtr<ID3D12PipelineState>     m_pPSO;
-    ComPtr<ID3D12RootSignature>     m_pRootSig;
-    float                           m_RotateAngle;
+    std::vector<Mesh*>           m_pMesh;
+    std::vector<ConstantBuffer*> m_Transform;
+    std::vector<ConstantBuffer*> m_TransformShadow;
+    Material                     m_Material;
+    ConstantBuffer*              m_pShadingConfig;
+    ConstantBuffer*              m_pLight;
+    ComPtr<ID3D12PipelineState>  m_pPSO;
+    ComPtr<ID3D12RootSignature>  m_pRootSig;
+    float                        m_RotateAngle;
 
 private:
     bool InitD3DComponent();
     bool InitD3DAsset();
 
     void TermD3D();
+
+    void CreateSwapChain();
 
     void Present(uint32_t interval);
 };

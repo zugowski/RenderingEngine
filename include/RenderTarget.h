@@ -14,14 +14,14 @@ public:
     RenderTarget();
     ~RenderTarget();
 
-    bool Init(
+    void Init(
         ID3D12Device*   pDevice,
         DescriptorPool* pPoolRTV,
         uint32_t        width,
         uint32_t        height,
         DXGI_FORMAT format);
 
-    bool InitFromBackBuffer(
+    void InitFromBackBuffer(
         ID3D12Device*   pDevice,
         DescriptorPool* pPoolRTV,
         uint32_t        index,

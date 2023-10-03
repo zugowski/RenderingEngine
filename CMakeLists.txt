@@ -86,22 +86,6 @@ set_source_files_properties( res/SimplePS.hlsl PROPERTIES
     VS_SHADER_ENABLE_DEBUG YES
 )
 
-set_source_files_properties( res/PbrVS.hlsl PROPERTIES 
-    VS_SHADER_TYPE Vertex
-    VS_SHADER_MODEL 5.0
-    VS_SHADER_ENTRYPOINT main
-    VS_SHADER_DISABLE_OPTIMIZATIONS YES
-    VS_SHADER_ENABLE_DEBUG YES
-)
-
-set_source_files_properties( res/PbrPS.hlsl PROPERTIES 
-    VS_SHADER_TYPE Pixel
-    VS_SHADER_MODEL 5.0
-    VS_SHADER_ENTRYPOINT main
-    VS_SHADER_DISABLE_OPTIMIZATIONS YES
-    VS_SHADER_ENABLE_DEBUG YES
-)
-
 add_library(${PROJECT_NAME} SHARED ${HEADER_FILES} ${SOURCE_FILES} ${SHADER_FILES})
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/assimp)

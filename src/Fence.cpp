@@ -12,31 +12,23 @@ Fence::~Fence()
     Term();
 }
 
-bool Fence::Init(ID3D12Device* pDevice)
+void Fence::Init(ID3D12Device* pDevice)
 {
     if (pDevice == nullptr)
-    {
-        return false;
-    }
+        __debugbreak();
 
     m_Event = CreateEventEx(nullptr, FALSE, FALSE, EVENT_ALL_ACCESS);
     if (m_Event == nullptr)
-    {
-        return false;
-    }
+        __debugbreak();
 
     auto hr = pDevice->CreateFence(
         0,
         D3D12_FENCE_FLAG_NONE,
         IID_PPV_ARGS(m_pFence.GetAddressOf()));
     if (FAILED(hr))
-    {
-        return false;
-    }
+        __debugbreak();
 
     m_Counter = 1;
-
-    return true;
 }
 
 void Fence::Term()
@@ -61,9 +53,7 @@ void Fence::Wait(ID3D12CommandQueue* pQueue, UINT timeout)
 
     auto hr = pQueue->Signal(m_pFence.Get(), fenceValue);
     if (FAILED(hr))
-    {
-        return;
-    }
+        __debugbreak();
 
     m_Counter++;
 
@@ -71,40 +61,28 @@ void Fence::Wait(ID3D12CommandQueue* pQueue, UINT timeout)
     {
         auto hr = m_pFence->SetEventOnCompletion(fenceValue, m_Event);
         if (FAILED(hr))
-        {
-            return;
-        }
+            __debugbreak();
 
         if (WAIT_OBJECT_0 != WaitForSingleObjectEx(m_Event, timeout, FALSE))
-        {
             return;
-        }
     }
 }
 
 void Fence::Sync(ID3D12CommandQueue* pQueue)
 {
     if (pQueue == nullptr)
-    {
         return;
-    }
 
     auto hr = pQueue->Signal(m_pFence.Get(), m_Counter);
     if (FAILED(hr))
-    {
-        return;
-    }
+        __debugbreak();
 
     hr = m_pFence->SetEventOnCompletion(m_Counter, m_Event);
     if (FAILED(hr))
-    {
-        return;
-    }
+        __debugbreak();
 
     if (WAIT_OBJECT_0 != WaitForSingleObjectEx(m_Event, INFINITE, FALSE))
-    {
         return;
-    }
 
     m_Counter++;
 }

@@ -31,8 +31,8 @@ public:
     D3D12_VERTEX_BUFFER_VIEW GetView() const;
 
 private:
-    ComPtr<ID3D12Resource>      m_pVB;
-    D3D12_VERTEX_BUFFER_VIEW    m_View;
+    ComPtr<ID3D12Resource>   m_pVB;
+    D3D12_VERTEX_BUFFER_VIEW m_View;
 
     VertexBuffer(const VertexBuffer&) = delete;
     void operator = (const VertexBuffer&) = delete;

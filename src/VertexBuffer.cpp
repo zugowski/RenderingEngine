@@ -19,24 +19,24 @@ bool VertexBuffer::Init(ID3D12Device* pDevice, size_t size, size_t stride, const
     }
 
     D3D12_HEAP_PROPERTIES prop = {};
-    prop.Type = D3D12_HEAP_TYPE_UPLOAD;
-    prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    prop.Type                 = D3D12_HEAP_TYPE_UPLOAD;
+    prop.CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
     prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-    prop.CreationNodeMask = 1;
-    prop.VisibleNodeMask = 1;
+    prop.CreationNodeMask     = 1;
+    prop.VisibleNodeMask      = 1;
 
     D3D12_RESOURCE_DESC desc = {};
-    desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    desc.Alignment = 0;
-    desc.Width = UINT64(size);
-    desc.Height = 1;
-    desc.DepthOrArraySize = 1;
-    desc.MipLevels = 1;
-    desc.Format = DXGI_FORMAT_UNKNOWN;
-    desc.SampleDesc.Count = 1;
+    desc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
+    desc.Alignment          = 0;
+    desc.Width              = UINT64(size);
+    desc.Height             = 1;
+    desc.DepthOrArraySize   = 1;
+    desc.MipLevels          = 1;
+    desc.Format             = DXGI_FORMAT_UNKNOWN;
+    desc.SampleDesc.Count   = 1;
     desc.SampleDesc.Quality = 0;
-    desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-    desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+    desc.Layout             = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    desc.Flags              = D3D12_RESOURCE_FLAG_NONE;
 
     auto hr = pDevice->CreateCommittedResource(
         &prop,
@@ -51,8 +51,8 @@ bool VertexBuffer::Init(ID3D12Device* pDevice, size_t size, size_t stride, const
     }
 
     m_View.BufferLocation = m_pVB->GetGPUVirtualAddress();
-    m_View.StrideInBytes = UINT(stride);
-    m_View.SizeInBytes = UINT(size);
+    m_View.StrideInBytes  = UINT(stride);
+    m_View.SizeInBytes    = UINT(size);
 
     if (pInitData != nullptr)
     {
