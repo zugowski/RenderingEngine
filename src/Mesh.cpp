@@ -13,21 +13,36 @@ Mesh::~Mesh()
     Term();
 }
 
-bool Mesh::Init(ID3D12Device* pDevice, const ResMesh& resource)
+bool Mesh::Init
+(
+    ID3D12Device* pDevice,
+    ID3D12CommandQueue* pQueue,
+    CommandList* pCmdList,
+    Fence* pFence,
+    const ResMesh& resource
+)
 {
     if (pDevice == nullptr)
-    {
         return false;
-    }
 
     if (!m_VB.Init(
-        pDevice, sizeof(MeshVertex) * resource.Vertices.size(), resource.Vertices.data()))
+        pDevice,
+        pQueue,
+        pCmdList,
+        pFence,
+        sizeof(MeshVertex) * resource.Vertices.size(),
+        resource.Vertices.data()))
     {
         return false;
     }
 
     if (!m_IB.Init(
-        pDevice, sizeof(uint32_t) * resource.Indices.size(), resource.Indices.data()))
+        pDevice,
+        pQueue,
+        pCmdList,
+        pFence,
+        sizeof(uint32_t) * resource.Indices.size(),
+        resource.Indices.data()))
     {
         return false;
     }

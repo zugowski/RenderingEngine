@@ -3,6 +3,8 @@
 #include <ResMesh.h>
 #include <VertexBuffer.h>
 #include <IndexBuffer.h>
+#include <CommandList.h>
+#include <Fence.h>
 
 class Mesh
 {
@@ -13,7 +15,13 @@ public:
     Mesh();
     virtual ~Mesh();
 
-    bool Init(ID3D12Device* pDevice, const ResMesh& resource);
+    bool Init(
+        ID3D12Device* pDevice,
+        ID3D12CommandQueue* pQueue,
+        CommandList* pCmdList,
+        Fence* pFence,
+        const ResMesh& resource);
+
     void Term();
 
     void Draw(ID3D12GraphicsCommandList* pCmdList);

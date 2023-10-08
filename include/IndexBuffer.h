@@ -3,6 +3,8 @@
 #include <d3d12.h>
 #include <ComPtr.h>
 #include <cstdint>
+#include <CommandList.h>
+#include <Fence.h>
 
 class IndexBuffer
 {
@@ -10,7 +12,14 @@ public:
     IndexBuffer();
     ~IndexBuffer();
 
-    bool Init(ID3D12Device* pDevice, size_t size, const uint32_t* pInitData = nullptr);
+    bool Init(
+        ID3D12Device* pDevice,
+        ID3D12CommandQueue* pQueue,
+        CommandList* pCmdList,
+        Fence* pFence,
+        size_t size, const uint32_t* 
+        pInitData = nullptr);
+
     void Term();
 
     uint32_t* Map();

@@ -109,7 +109,7 @@ bool Renderer::Load(const wchar_t* filePath)
             return false;
         }
 
-        if (!mesh->Init(m_pDevice.Get(), resMesh[i]))
+        if (!mesh->Init(m_pDevice.Get(), m_pQueue.Get(), &m_CommandList, &m_Fence, resMesh[i]))
         {
             ELOG("Error : Mesh Initialize Failed.");
             delete mesh;
@@ -232,7 +232,67 @@ bool Renderer::Load(const wchar_t* filePath)
 
 void Renderer::Resize(uint32_t width, uint32_t height)
 {
+    if (m_pDevice == nullptr || m_pSwapChain == nullptr)
+        __debugbreak();
 
+    m_Width  = width;
+    m_Height = height;
+
+    m_Fence.Sync(m_pQueue.Get());
+    //auto pCmd = m_CommandList.Reset();
+
+    for(int i = 0; i < FrameCount; ++i)
+        m_ColorTarget[i].Term(); 
+    m_DepthTarget.Term();
+
+    // swap chain 炼沥
+    auto hr = m_pSwapChain->ResizeBuffers(
+        FrameCount,
+        m_Width,
+        m_Height,
+        BackBufferFormat,
+        DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+    if (FAILED(hr))
+        __debugbreak();
+
+    m_FrameIndex = 0;
+
+    // RTV, depth/stencil buffer 积己
+    for (int i = 0; i < FrameCount; ++i)
+    {
+        m_ColorTarget[i].InitFromBackBuffer(
+            m_pDevice.Get(),
+            m_pPool[DescriptorPool::POOL_TYPE_RTV],
+            i,
+            m_pSwapChain.Get());
+    }
+
+    m_DepthTarget.Init(
+        m_pDevice.Get(),
+        m_pPool[DescriptorPool::POOL_TYPE_DSV],
+        m_Width,
+        m_Height,
+        DXGI_FORMAT_D32_FLOAT);
+
+    //pCmd->Close();
+
+    //ID3D12CommandList* pLists[] = { pCmd };
+    //m_pQueue->ExecuteCommandLists(1, pLists);
+
+    //m_Fence.Sync(m_pQueue.Get());
+
+    // viewport, scissor 农扁 炼沥
+    m_Viewport.TopLeftX = 0.0f;
+    m_Viewport.TopLeftY = 0.0f;
+    m_Viewport.Width    = float(m_Width);
+    m_Viewport.Height   = float(m_Height);
+    m_Viewport.MinDepth = 0.0f;
+    m_Viewport.MaxDepth = 1.0f;
+
+    m_Scissor.left   = 0;
+    m_Scissor.right  = m_Width;
+    m_Scissor.top    = 0;
+    m_Scissor.bottom = m_Height;
 }
 
 void Renderer::Render()
@@ -589,7 +649,7 @@ bool Renderer::InitD3DComponent()
     DescriptorPool::Create(m_pDevice.Get(), &dhDesc, &m_pPool[DescriptorPool::POOL_TYPE_DSV]);
 
     // RTV 积己
-    for (auto i = 0u; i < FrameCount; ++i)
+    for (int i = 0; i < FrameCount; ++i)
     {
         m_ColorTarget[i].InitFromBackBuffer(
             m_pDevice.Get(),
@@ -813,7 +873,7 @@ bool Renderer::InitD3DAsset()
 
         m_TransformShadow.reserve(FrameCount);
 
-        for (auto i = 0; i < FrameCount; ++i)
+        for (int i = 0; i < FrameCount; ++i)
         {
             auto pCB = new (std::nothrow) ConstantBuffer();
             if (pCB == nullptr)
@@ -924,7 +984,7 @@ void Renderer::TermD3D()
     m_Fence.Sync(m_pQueue.Get());
     m_Fence.Term();
 
-    for (auto i = 0u; i < FrameCount; ++i)
+    for (int i = 0u; i < FrameCount; ++i)
     {
         m_ColorTarget[i].Term();
     }
@@ -932,7 +992,7 @@ void Renderer::TermD3D()
     m_DepthTarget.Term();
     m_CommandList.Term();
 
-    for (auto i = 0; i < DescriptorPool::POOL_COUNT; ++i)
+    for (int i = 0; i < DescriptorPool::POOL_COUNT; ++i)
     {
         if (m_pPool[i] != nullptr)
         {

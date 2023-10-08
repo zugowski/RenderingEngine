@@ -2,6 +2,8 @@
 
 #include <d3d12.h>
 #include <ComPtr.h>
+#include <CommandList.h>
+#include <Fence.h>
 
 class VertexBuffer
 {
@@ -9,12 +11,25 @@ public:
     VertexBuffer();
     ~VertexBuffer();
 
-    bool Init(ID3D12Device* pDevice, size_t size, size_t stride, const void* pInitData = nullptr);
+    bool Init(
+        ID3D12Device* pDevice,
+        ID3D12CommandQueue* pQueue,
+        CommandList* pCmdList,
+        Fence* pFence,
+        size_t size, 
+        size_t stride, 
+        const void* pInitData = nullptr);
 
     template<typename T>
-    bool Init(ID3D12Device* pDevice, size_t size, const T* pInitData = nullptr)
+    bool Init(
+        ID3D12Device* pDevice,
+        ID3D12CommandQueue* pQueue,
+        CommandList* pCmdList,
+        Fence* pFence,
+        size_t size, 
+        const T* pInitData = nullptr)
     {
-        return Init(pDevice, size, sizeof(T), pInitData);
+        return Init(pDevice, pQueue, pCmdList, pFence, size, sizeof(T), pInitData);
     }
 
     void Term();

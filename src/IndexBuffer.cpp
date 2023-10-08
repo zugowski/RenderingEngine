@@ -11,8 +11,19 @@ IndexBuffer::~IndexBuffer()
     Term();
 }
 
-bool IndexBuffer::Init(ID3D12Device* pDevice, size_t size, const uint32_t* pInitData)
+bool IndexBuffer::Init
+(
+    ID3D12Device* pDevice,
+    ID3D12CommandQueue* pQueue,
+    CommandList* pCmdList,
+    Fence* pFence,
+    size_t size,
+    const uint32_t* pInitData
+)
 {
+    // UPLOAD 힙 생성 및 데이터 복사
+    ComPtr<ID3D12Resource> uploadBuffer;
+
     D3D12_HEAP_PROPERTIES prop = {};
     prop.Type                 = D3D12_HEAP_TYPE_UPLOAD;
     prop.CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -39,6 +50,33 @@ bool IndexBuffer::Init(ID3D12Device* pDevice, size_t size, const uint32_t* pInit
         &desc,
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr,
+        IID_PPV_ARGS(uploadBuffer.GetAddressOf()));
+    if (FAILED(hr))
+        return false;
+
+    if (pInitData != nullptr)
+    {
+        void* ptr;
+
+        if (FAILED(uploadBuffer->Map(0, nullptr, &ptr)))
+            return false;
+
+        if (ptr == nullptr)
+            return false;
+
+        memcpy(ptr, pInitData, size);
+
+        uploadBuffer->Unmap(0, nullptr);
+    }
+
+    // DEFAULT 힙 생성
+    prop.Type = D3D12_HEAP_TYPE_DEFAULT;
+    hr = pDevice->CreateCommittedResource(
+        &prop,
+        D3D12_HEAP_FLAG_NONE,
+        &desc,
+        D3D12_RESOURCE_STATE_COMMON,
+        nullptr,
         IID_PPV_ARGS(m_pIB.GetAddressOf()));
     if (FAILED(hr))
         return false;
@@ -47,16 +85,33 @@ bool IndexBuffer::Init(ID3D12Device* pDevice, size_t size, const uint32_t* pInit
     m_View.Format         = DXGI_FORMAT_R32_UINT;
     m_View.SizeInBytes    = UINT(size);
 
-    if (pInitData != nullptr)
-    {
-        void* ptr = Map();
-        if (ptr == nullptr)
-            return false;
+    // UPLOAD 힙으로 부터 데이터 복사
+    auto pCmd = pCmdList->Reset();
 
-        memcpy(ptr, pInitData, size);
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+    barrier.Transition.pResource   = m_pIB.Get();
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
+    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    pCmd->ResourceBarrier(1, &barrier);
 
-        m_pIB->Unmap(0, nullptr);
-    }
+    pCmd->CopyResource(m_pIB.Get(), uploadBuffer.Get());
+
+    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+    barrier.Transition.pResource   = m_pIB.Get();
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COMMON;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    pCmd->ResourceBarrier(1, &barrier);
+
+    pCmd->Close();
+
+    ID3D12CommandList* pLists[] = { pCmd };
+    pQueue->ExecuteCommandLists(1, pLists);
+    pFence->Sync(pQueue);
 
     return true;
 }
