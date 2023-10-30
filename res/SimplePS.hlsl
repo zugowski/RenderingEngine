@@ -12,22 +12,21 @@ struct PSOutput
     float4 Color : SV_TARGET0;
 };
 
+struct Light
+{
+    float3 Color;     // 빛의 세기
+    float Range;      // 포인트/스포트라이트 전용
+    float3 Direction; // 디렉셔널/스포트라이트 전용
+    float SpotPower;  // 스포트라이트 전용
+    float3 Position;  // 포인트라이트 전용
+    float pad;
+};
+
 cbuffer LightBuffer : register(b1)
 {
-    float3 CameraPosition    : packoffset(c0);
-    
-    float3 DirLightDirection : packoffset(c1);
-    float3 DirLightColor     : packoffset(c2);
-    
-    float3 PtLightPosition   : packoffset(c3);
-    float3 PtLightColor      : packoffset(c4);
-    float  PtLightRange      : packoffset(c4.w);
-    
-    float3 SptLightPosition  : packoffset(c5);
-    float3 SptLightColor     : packoffset(c6);
-    float  SptLightRange     : packoffset(c6.w);
-    float3 SptLightDirection : packoffset(c7);
-    float  SptAngle          : packoffset(c7.w);
+    Light DirLight;
+    Light PointLight;
+    Light SpotLight;
 }
 
 cbuffer MaterialBuffer : register(b2)
@@ -38,12 +37,14 @@ cbuffer MaterialBuffer : register(b2)
     float Shininess : packoffset(c1.w);
 }
 
-cbuffer ConfigureBuffer : register(b3)
+cbuffer PassConstantBuffer : register(b3)
 {
-    int DiffuseMapUsable   : packoffset(c0.x);
-    int SpecularMapUsable  : packoffset(c0.y);
-    int ShininessMapUsable : packoffset(c0.z);
-    int NormalMapUsable    : packoffset(c0.w);
+    float3 CameraPosition  : packoffset(c0);
+    float4 AmbientLight    : packoffset(c1);
+    int DiffuseMapUsable   : packoffset(c2.x);
+    int SpecularMapUsable  : packoffset(c2.y);
+    int ShininessMapUsable : packoffset(c2.z);
+    int NormalMapUsable    : packoffset(c2.w);
 }
 
 SamplerState ColorSmp    : register(s0);
@@ -110,21 +111,21 @@ PSOutput main(VSOutput input)
 
 float3 GetLightFromDirLight(float3 normal)
 {
-    float3 diffuse = ComputeLambert(-DirLightDirection, DirLightColor, normal);
-    float3 specular = ComputePhong(g_Input.WorldPos, -DirLightDirection, DirLightColor, normal);
+    float3 diffuse = ComputeLambert(-DirLight.Direction, DirLight.Color, normal);
+    float3 specular = ComputePhong(g_Input.WorldPos, -DirLight.Direction, DirLight.Color, normal);
     
     return diffuse + specular;
 }
 
 float3 GetLightFromPointLight(float3 normal)
 {
-    float3 L = normalize(g_Input.WorldPos.xyz - PtLightPosition);
+    float3 L = normalize(g_Input.WorldPos.xyz - PointLight.Position);
     
-    float3 diffuse = ComputeLambert(L, PtLightColor, normal);
-    float3 specular = ComputePhong(g_Input.WorldPos, L, PtLightColor, normal);
+    float3 diffuse = ComputeLambert(L, PointLight.Color, normal);
+    float3 specular = ComputePhong(g_Input.WorldPos, L, PointLight.Color, normal);
     
-    float dist = length(g_Input.WorldPos.xyz - PtLightPosition);
-    float affect = saturate(1.0f - 1.0f / PtLightRange * dist);
+    float dist = length(g_Input.WorldPos.xyz - PointLight.Position);
+    float affect = saturate(1.0f - 1.0f / PointLight.Range * dist);
     affect = pow(affect, 3.0f);
     
     diffuse *= affect;
@@ -135,26 +136,29 @@ float3 GetLightFromPointLight(float3 normal)
 
 float3 GetLightFromSpotLight(float3 normal)
 {
-    float3 L = normalize(g_Input.WorldPos.xyz - SptLightPosition);
+    float3 L = normalize(g_Input.WorldPos.xyz - SpotLight.Position);
     
-    float3 diffuse = ComputeLambert(L, SptLightColor, normal);
-    float3 specular = ComputePhong(g_Input.WorldPos, L, SptLightColor, normal);
+    float3 diffuse = ComputeLambert(L, SpotLight.Color, normal);
+    float3 specular = ComputePhong(g_Input.WorldPos, L, SpotLight.Color, normal);
     
-    float dist = length(g_Input.WorldPos.wyz - SptLightPosition);
-    float affect = saturate(1.0f - 1.0f / SptLightRange * dist);
-    affect = pow(affect, 3.0f);
+    float dist = length(g_Input.WorldPos.wyz - SpotLight.Position);
+    float affect = saturate(1.0f - 1.0f / SpotLight.Range * dist);
+    //affect = pow(affect, 3.0f);
     
     diffuse *= affect;
     specular *= affect;
     
-    float angle = dot(L, SptLightDirection);
-    angle = abs(acos(angle));
-    affect = saturate(1.0f - 1.0f / SptAngle * angle);
+    float spotFactor = pow(max(dot(-L, normalize(SpotLight.Direction)), 0.0f), SpotLight.SpotPower);
+
+    diffuse *= spotFactor;
+    specular *= spotFactor;
     
+    //float angle = dot(L, SpotLight.Direction);
+    //angle = abs(acos(angle));
+    //affect = saturate(1.0f - 1.0f / SptAngle * angle);
     //affect = pow(affect, 0.5f);
-    
-    diffuse *= affect;
-    specular *= affect;
+    //diffuse *= affect;
+    //specular *= affect;
     
     return diffuse + specular;
 }

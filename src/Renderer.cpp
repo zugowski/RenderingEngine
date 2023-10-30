@@ -15,25 +15,21 @@ struct Transform
     DirectX::XMMATRIX Proj;
 };
 
+struct Light
+{
+    DirectX::XMFLOAT3 Color;     // 빛의 세기
+    float Range;                 // 포인트/스포트라이트 전용
+    DirectX::XMFLOAT3 Direction; // 디렉셔널/스포트라이트 전용
+    float SpotPower;             // 스포트라이트 전용
+    DirectX::XMFLOAT3 Position;  // 포인트라이트 전용
+    float pad;
+};
+
 struct LightBuffer
 {
-    // View
-    alignas(16) DirectX::XMFLOAT3 CameraPosition;
-
-    // Directional Light
-    alignas(16) DirectX::XMFLOAT3 DirLightDirection;
-    alignas(16) DirectX::XMFLOAT3 DirLightColor;
-
-    // Point Light
-    alignas(16) DirectX::XMFLOAT3 PtLightPosition;
-    alignas(16) DirectX::XMFLOAT3 PtLightColor;
-    float PtLightRange;
-
-    alignas(16) DirectX::XMFLOAT3 SptLightPosition;
-    alignas(16) DirectX::XMFLOAT3 SptLightColor;
-    float SptLightRange;
-    alignas(16) DirectX::XMFLOAT3 SptLightDirection;
-    float SptAngle;
+    Light DirLight;
+    Light PointLight;
+    Light SpotLight;
 };
 
 struct MaterialBuffer
@@ -44,19 +40,14 @@ struct MaterialBuffer
     float             Shininess;
 };
 
-struct ShadingConfigure
+struct PassConstantBuffer
 {
-    alignas(16) 
+    alignas(16) DirectX::XMFLOAT3 CameraPosition;
+    alignas(16) DirectX::XMFLOAT4 AmbientLight;
     int DiffuseMapUsable;
     int SpecularMapUsable;
     int ShininessMapUsable;
     int NormalMapUsable;
-
-    alignas(16)
-    int PbrAlbedoMapUsable;
-    int PbrNormalMapUsable;
-    int PbrMetalicMapUsable;
-    int PbrRoughnessMapUsable;
 };
 
 Renderer::Renderer(HINSTANCE hInst, HWND hWnd, uint32_t width, uint32_t height)
@@ -135,7 +126,7 @@ bool Renderer::Load(const wchar_t* filePath)
     batch.Begin();
 
     // Set shading config for shaders
-    auto pShdConfig = m_pShadingConfig->GetPtr<ShadingConfigure>();
+    auto pPassCB = m_pPass->GetPtr<PassConstantBuffer>();
 
     for (size_t i = 0; i < resMaterial.size(); ++i)
     {
@@ -155,7 +146,7 @@ bool Renderer::Load(const wchar_t* filePath)
                 resMaterial[i].TextureData.DiffuseTexSize,
                 batch);
 
-            pShdConfig->DiffuseMapUsable = 1;
+            pPassCB->DiffuseMapUsable = 1;
         }
         else
         {
@@ -178,7 +169,7 @@ bool Renderer::Load(const wchar_t* filePath)
                 resMaterial[i].TextureData.NormalTexSize,
                 batch);
 
-            pShdConfig->NormalMapUsable = 1;
+            pPassCB->NormalMapUsable = 1;
         }
         else
         {
@@ -201,7 +192,7 @@ bool Renderer::Load(const wchar_t* filePath)
                 resMaterial[i].TextureData.SpecularTexSize,
                 batch);
 
-            pShdConfig->SpecularMapUsable = 1;
+            pPassCB->SpecularMapUsable = 1;
         }
         else
         {
@@ -345,7 +336,7 @@ void Renderer::Render()
             auto id = m_pMesh[i]->GetMaterialId();
             pCmd->SetGraphicsRootConstantBufferView(0, m_Transform->GetAddress());
             pCmd->SetGraphicsRootConstantBufferView(2, m_Material.GetBufferAddress(i));
-            pCmd->SetGraphicsRootConstantBufferView(3, m_pShadingConfig->GetAddress());
+            pCmd->SetGraphicsRootConstantBufferView(3, m_pPass->GetAddress());
             pCmd->SetGraphicsRootDescriptorTable(4, m_Material.GetTextureHandle(id, TU_DIFFUSE));
             pCmd->SetGraphicsRootDescriptorTable(5, m_Material.GetTextureHandle(id, TU_NORMAL));
             pCmd->SetGraphicsRootDescriptorTable(6, m_Material.GetTextureHandle(id, TU_SPECULAR));
@@ -356,7 +347,7 @@ void Renderer::Render()
 
             auto pLight = m_Transform->GetPtr<LightBuffer>();
             DirectX::XMVECTOR shadowPlane = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-            DirectX::XMVECTOR dirLightDir = DirectX::XMLoadFloat3(&pLight->DirLightDirection);
+            DirectX::XMVECTOR dirLightDir = DirectX::XMLoadFloat3(&pLight->DirLight.Direction);
             DirectX::XMMATRIX S = DirectX::XMMatrixShadow(shadowPlane, dirLightDir);
 
             auto pTransformShadow = m_TransformShadow[m_FrameIndex]->GetPtr<Transform>();
@@ -385,145 +376,145 @@ void Renderer::Render()
 void Renderer::SetDirLightDirectionX(float x)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->DirLightDirection.x = x;
+    ptr->DirLight.Direction.x = x;
 }
 
 void Renderer::SetDirLightDirectionY(float y)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->DirLightDirection.y = y;
+    ptr->DirLight.Direction.y = y;
 }
 
 void Renderer::SetDirLightDirectionZ(float z)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->DirLightDirection.z = z;
-}
-
-void Renderer::SetPtLightPositionX(float x)
-{
-    auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->PtLightPosition.x = x;
-}
-
-void Renderer::SetPtLightPositionY(float y)
-{
-    auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->PtLightPosition.y = y;
-}
-
-void Renderer::SetPtLightPositionZ(float z)
-{
-    auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->PtLightPosition.z = z;
+    ptr->DirLight.Direction.z = z;
 }
 
 void Renderer::SetDirLightColorR(float r)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->DirLightColor.x = r;
+    ptr->DirLight.Color.x = r;
 }
 
 void Renderer::SetDirLightColorG(float g)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->DirLightColor.y = g;
+    ptr->DirLight.Color.y = g;
 }
 
 void Renderer::SetDirLightColorB(float b)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->DirLightColor.z = b;
+    ptr->DirLight.Color.z = b;
 }
 
-void Renderer::SetPtLightColorR(float r)
+void Renderer::SetPointLightPositionX(float x)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->PtLightColor.x = r;
+    ptr->PointLight.Position.x = x;
 }
 
-void Renderer::SetPtLightColorG(float g)
+void Renderer::SetPointLightPositionY(float y)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->PtLightColor.y = g;
+    ptr->PointLight.Position.y = y;
 }
 
-void Renderer::SetPtLightColorB(float b)
+void Renderer::SetPointLightPositionZ(float z)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->PtLightColor.z = b;
+    ptr->PointLight.Position.z = z;
 }
 
-void Renderer::SetPtLightRange(int range)
+void Renderer::SetPointLightColorR(float r)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->PtLightRange = range;
+    ptr->PointLight.Color.x = r;
 }
 
-void Renderer::SetSptLightPositionX(float x)
+void Renderer::SetPointLightColorG(float g)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->SptLightPosition.x = x;
+    ptr->PointLight.Color.y = g;
 }
 
-void Renderer::SetSptLightPositionY(float y)
+void Renderer::SetPointLightColorB(float b)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->SptLightPosition.y = y;
+    ptr->PointLight.Color.z = b;
 }
 
-void Renderer::SetSptLightPositionZ(float z)
+void Renderer::SetPointLightRange(float range)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->SptLightPosition.z = z;
+    ptr->PointLight.Range = range;
 }
 
-void Renderer::SetSptLightDirectionX(float x)
+void Renderer::SetSpotLightPositionX(float x)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->SptLightDirection.x = x;
+    ptr->SpotLight.Position.x = x;
 }
 
-void Renderer::SetSptLightDirectionY(float y)
+void Renderer::SetSpotLightPositionY(float y)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->SptLightDirection.y = y;
+    ptr->SpotLight.Position.y = y;
 }
 
-void Renderer::SetSptLightDirectionZ(float z)
+void Renderer::SetSpotLightPositionZ(float z)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->SptLightDirection.z = z;
+    ptr->SpotLight.Position.z = z;
 }
 
-void Renderer::SetSptLightColorR(float r)
+void Renderer::SetSpotLightDirectionX(float x)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->SptLightColor.x = r;
+    ptr->SpotLight.Direction.x = x;
 }
 
-void Renderer::SetSptLightColorG(float g)
+void Renderer::SetSpotLightDirectionY(float y)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->SptLightColor.y = g;
+    ptr->SpotLight.Direction.y = y;
 }
 
-void Renderer::SetSptLightColorB(float b)
+void Renderer::SetSpotLightDirectionZ(float z)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->SptLightColor.z = b;
+    ptr->SpotLight.Direction.z = z;
 }
 
-void Renderer::SetSptLightRange(int range)
+void Renderer::SetSpotLightColorR(float r)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->SptLightRange = range;
+    ptr->SpotLight.Color.x = r;
 }
 
-void Renderer::SetSptLightAngle(int angle)
+void Renderer::SetSpotLightColorG(float g)
 {
     auto ptr = m_pLight->GetPtr<LightBuffer>();
-    ptr->SptAngle = DirectX::XMConvertToRadians(angle);
+    ptr->SpotLight.Color.y = g;
+}
+
+void Renderer::SetSpotLightColorB(float b)
+{
+    auto ptr = m_pLight->GetPtr<LightBuffer>();
+    ptr->SpotLight.Color.z = b;
+}
+
+void Renderer::SetSpotLightRange(float range)
+{
+    auto ptr = m_pLight->GetPtr<LightBuffer>();
+    ptr->SpotLight.Range = range;
+}
+
+void Renderer::SetSpotLightSpotPower(float spotPower)
+{
+    auto ptr = m_pLight->GetPtr<LightBuffer>();
+    ptr->SpotLight.SpotPower = spotPower;
 }
 
 bool Renderer::InitD3DComponent()
@@ -889,9 +880,9 @@ bool Renderer::InitD3DAsset()
             }
 
             // 카메라 설정
-            auto eyePos = DirectX::XMVectorSet(0.0f, 0.4f, -2.0f, 0.0f); //DirectX::XMVectorSet(0.0f, 300.0f, -500.0f, 0.0f);
+            auto eyePos    = DirectX::XMVectorSet(0.0f, 0.4f, -2.0f, 0.0f); //DirectX::XMVectorSet(0.0f, 300.0f, -500.0f, 0.0f);
             auto targetPos = DirectX::XMVectorSet(0.0f, 0.4f, 0.0f, 0.0f);  //DirectX::XMVectorZero();
-            auto upward = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+            auto upward    = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
             constexpr auto fovY = DirectX::XMConvertToRadians(37.5f);
             auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
@@ -923,20 +914,19 @@ bool Renderer::InitD3DAsset()
             }
 
             auto ptr = pCB->GetPtr<LightBuffer>();
-            ptr->CameraPosition = DirectX::XMFLOAT3(0.0f, 300.0f, -500.0f);
 
-            ptr->DirLightDirection = DirectX::XMFLOAT3(0.0f, 300.0f, -150.0f);
-            ptr->DirLightColor = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);   // 1.0f, 0.753f, 0.796f
+            //ptr->DirLight.Direction  = DirectX::XMFLOAT3(0.0f, 300.0f, -150.0f);
+            //ptr->DirLight.Color      = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);   // 1.0f, 0.753f, 0.796f
 
-            ptr->PtLightPosition = DirectX::XMFLOAT3(0.0f, 300.0f, -150.0f);
-            ptr->PtLightColor = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
-            ptr->PtLightRange = 300.0f;
+            //ptr->PointLight.Position = DirectX::XMFLOAT3(0.0f, 300.0f, -150.0f);
+            //ptr->PointLight.Color    = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
+            //ptr->PointLight.Range    = 300.0f;
 
-            ptr->SptLightPosition = DirectX::XMFLOAT3(0.0f, 20.0f, -50.0f);
-            ptr->SptLightColor = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
-            ptr->SptLightRange = 1000.0f;
-            ptr->SptLightDirection = DirectX::XMFLOAT3(1.0f, -1.0f, 1.0f);
-            ptr->SptAngle = DirectX::XMConvertToRadians(200.0f);
+            //ptr->SpotLight.Position  = DirectX::XMFLOAT3(0.0f, 20.0f, -50.0f);
+            //ptr->SpotLight.Direction = DirectX::XMFLOAT3(1.0f, -1.0f, 1.0f);
+            //ptr->SpotLight.Color     = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
+            //ptr->SpotLight.Range     = 0.0f;
+            //ptr->SpotLight.SpotPower = 0.0f;
 
             m_pLight = pCB;
 
@@ -954,25 +944,22 @@ bool Renderer::InitD3DAsset()
             if (!pCB->Init(
                 m_pDevice.Get(),
                 m_pPool[DescriptorPool::POOL_TYPE_RES],
-                sizeof(ShadingConfigure)))
+                sizeof(PassConstantBuffer)))
             {
                 ELOG("Error : ConstantBuffer::Init() Failed.");
                 return false;
             }
 
-            auto ptr = pCB->GetPtr<ShadingConfigure>();
+            auto ptr = pCB->GetPtr<PassConstantBuffer>();
 
+            ptr->CameraPosition     = DirectX::XMFLOAT3(0.0f, 0.4f, -2.0f);
+            ptr->AmbientLight       = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
             ptr->DiffuseMapUsable   = 0;
             ptr->SpecularMapUsable  = 0;
             ptr->ShininessMapUsable = 0;
             ptr->NormalMapUsable    = 0;
 
-            ptr->PbrAlbedoMapUsable    = 0;
-            ptr->PbrNormalMapUsable    = 0;
-            ptr->PbrMetalicMapUsable   = 0;
-            ptr->PbrRoughnessMapUsable = 0;
-
-            m_pShadingConfig = pCB;
+            m_pPass = pCB;
         }
     }
 

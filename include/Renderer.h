@@ -36,31 +36,31 @@ public:
     virtual void SetDirLightColorB(float b) = 0;
 
     // Point Light
-    virtual void SetPtLightPositionX(float x) = 0;
-    virtual void SetPtLightPositionY(float y) = 0;
-    virtual void SetPtLightPositionZ(float z) = 0;
+    virtual void SetPointLightPositionX(float x) = 0;
+    virtual void SetPointLightPositionY(float y) = 0;
+    virtual void SetPointLightPositionZ(float z) = 0;
 
-    virtual void SetPtLightColorR(float r) = 0;
-    virtual void SetPtLightColorG(float g) = 0;
-    virtual void SetPtLightColorB(float b) = 0;
+    virtual void SetPointLightColorR(float r) = 0;
+    virtual void SetPointLightColorG(float g) = 0;
+    virtual void SetPointLightColorB(float b) = 0;
 
-    virtual void SetPtLightRange(int range) = 0;
+    virtual void SetPointLightRange(float range) = 0;
 
     // Spot Light
-    virtual void SetSptLightPositionX(float x) = 0;
-    virtual void SetSptLightPositionY(float y) = 0;
-    virtual void SetSptLightPositionZ(float z) = 0;
+    virtual void SetSpotLightPositionX(float x) = 0;
+    virtual void SetSpotLightPositionY(float y) = 0;
+    virtual void SetSpotLightPositionZ(float z) = 0;
 
-    virtual void SetSptLightDirectionX(float x) = 0;
-    virtual void SetSptLightDirectionY(float y) = 0;
-    virtual void SetSptLightDirectionZ(float z) = 0;
+    virtual void SetSpotLightDirectionX(float x) = 0;
+    virtual void SetSpotLightDirectionY(float y) = 0;
+    virtual void SetSpotLightDirectionZ(float z) = 0;
 
-    virtual void SetSptLightColorR(float r) = 0;
-    virtual void SetSptLightColorG(float g) = 0;
-    virtual void SetSptLightColorB(float b) = 0;
+    virtual void SetSpotLightColorR(float r) = 0;
+    virtual void SetSpotLightColorG(float g) = 0;
+    virtual void SetSpotLightColorB(float b) = 0;
 
-    virtual void SetSptLightRange(int range) = 0;
-    virtual void SetSptLightAngle(int angle) = 0;
+    virtual void SetSpotLightRange(float range) = 0;
+    virtual void SetSpotLightSpotPower(float angle) = 0;
 };
 
 class Renderer : public IRenderer
@@ -85,31 +85,31 @@ public:
     void SetDirLightColorB(float b);
 
     // Point Light
-    void SetPtLightPositionX(float x);
-    void SetPtLightPositionY(float y);
-    void SetPtLightPositionZ(float z);
+    void SetPointLightPositionX(float x);
+    void SetPointLightPositionY(float y);
+    void SetPointLightPositionZ(float z);
 
-    void SetPtLightColorR(float r);
-    void SetPtLightColorG(float g);
-    void SetPtLightColorB(float b);
+    void SetPointLightColorR(float r);
+    void SetPointLightColorG(float g);
+    void SetPointLightColorB(float b);
 
-    void SetPtLightRange(int range);
+    void SetPointLightRange(float range);
 
     // Spot Light
-    void SetSptLightPositionX(float x);
-    void SetSptLightPositionY(float y);
-    void SetSptLightPositionZ(float z);
+    void SetSpotLightPositionX(float x);
+    void SetSpotLightPositionY(float y);
+    void SetSpotLightPositionZ(float z);
 
-    void SetSptLightDirectionX(float x);
-    void SetSptLightDirectionY(float y);
-    void SetSptLightDirectionZ(float z);
+    void SetSpotLightDirectionX(float x);
+    void SetSpotLightDirectionY(float y);
+    void SetSpotLightDirectionZ(float z);
 
-    void SetSptLightColorR(float r);
-    void SetSptLightColorG(float g);
-    void SetSptLightColorB(float b);
+    void SetSpotLightColorR(float r);
+    void SetSpotLightColorG(float g);
+    void SetSpotLightColorB(float b);
 
-    void SetSptLightRange(int range);
-    void SetSptLightAngle(int angle);
+    void SetSpotLightRange(float range);
+    void SetSpotLightSpotPower(float spotPower);
 
 private:
     static const uint32_t    FrameCount = 2;
@@ -138,7 +138,7 @@ private:
     ConstantBuffer*              m_Transform;
     std::vector<ConstantBuffer*> m_TransformShadow;
     Material                     m_Material;
-    ConstantBuffer*              m_pShadingConfig;
+    ConstantBuffer*              m_pPass;
     ConstantBuffer*              m_pLight;
     ComPtr<ID3D12PipelineState>  m_pPSO;
     ComPtr<ID3D12RootSignature>  m_pRootSig;
