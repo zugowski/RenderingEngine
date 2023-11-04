@@ -39,6 +39,6 @@ private:
     D3D12_CONSTANT_BUFFER_VIEW_DESC m_Desc;
     void*                           m_pMappedPtr;
 
-    ConstantBuffer(const ConstantBuffer&) = delete;
-    void operator = (const ConstantBuffer&) = delete;
+    //ConstantBuffer(const ConstantBuffer&) = delete;
+    //void operator = (const ConstantBuffer&) = delete;
 };

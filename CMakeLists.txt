@@ -26,6 +26,7 @@ set( HEADER_FILES
     include/DllExport.h
     include/Fence.h
     include/FileUtil.h
+    include/FrameResource.h
     include/framework.h
     include/IndexBuffer.h
     include/Logger.h
@@ -50,6 +51,7 @@ set( SOURCE_FILES
     src/DescriptorPool.cpp
     src/Fence.cpp
     src/FileUtil.cpp
+    src/FrameResource.cpp
     src/IndexBuffer.cpp
     src/Logger.cpp
     src/Material.cpp

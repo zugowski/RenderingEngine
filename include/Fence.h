@@ -14,6 +14,10 @@ public:
     void Wait(ID3D12CommandQueue* pQueue, UINT timeout);
     void Sync(ID3D12CommandQueue* pQueue);
 
+    // FrameResource¿ë
+    void Wait(UINT64 fenceValue, UINT timeout);
+    void Signal();
+
 private:
     ComPtr<ID3D12Fence> m_pFence;
     HANDLE              m_Event;

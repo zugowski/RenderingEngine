@@ -13,10 +13,13 @@
 #include <RenderTarget.h>
 #include <DepthTarget.h>
 #include <CommandList.h>
+#include <VertexBuffer.h>
+#include <IndexBuffer.h>
 #include <Fence.h>
 #include <Material.h>
 #include <Mesh.h>
 #include <Texture.h>
+#include <FrameResource.h>
 
 class IRenderer
 {
@@ -61,6 +64,12 @@ public:
 
     virtual void SetSpotLightRange(float range) = 0;
     virtual void SetSpotLightSpotPower(float angle) = 0;
+};
+
+struct RenderItem
+{
+    VertexBuffer VB;
+    IndexBuffer  IB;
 };
 
 class Renderer : public IRenderer
@@ -113,6 +122,7 @@ public:
 
 private:
     static const uint32_t    FrameCount = 2;
+    static const int         FrameResourceCount = 3;
     static D3D_FEATURE_LEVEL FeatureLevel;
     static DXGI_FORMAT       BackBufferFormat;
     static UINT              Msaa4xQuality;
@@ -129,6 +139,8 @@ private:
     DepthTarget                m_DepthTarget;
     DescriptorPool*            m_pPool[DescriptorPool::POOL_COUNT];
     CommandList                m_CommandList;
+    ComPtr<ID3D12GraphicsCommandList> m_pCmdList;
+    ComPtr<ID3D12CommandAllocator>    m_pDirCmdAllocator;
     Fence                      m_Fence;
     uint32_t                   m_FrameIndex;
     D3D12_VIEWPORT             m_Viewport;
@@ -144,6 +156,11 @@ private:
     ComPtr<ID3D12RootSignature>  m_pRootSig;
     float                        m_RotateAngle;
 
+    std::vector<FrameResource> m_FrameResources;
+    int                        m_CurrFrameResIndex;
+    FrameResource*             m_CurrFrameRes;
+    std::vector<RenderItem>    m_RenderItems;
+
 private:
     bool InitD3DComponent();
     bool InitD3DAsset();
@@ -151,6 +168,16 @@ private:
     void TermD3D();
 
     void CreateSwapChain();
+    
+    void BuildRenderItems();
+
+    void Update();
+    void UpdateTransform();
+    void UpdateLight();
+    void UpdateMaterial();
+    void UpdatePass();
+
+    void Draw();
 
     void Present(uint32_t interval);
 };
