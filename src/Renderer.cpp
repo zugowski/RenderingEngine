@@ -2,53 +2,11 @@
 #include <wrl/wrappers/corewrappers.h>
 #include <wrl/client.h>
 #include <CommonStates.h>
-#include "Renderer.h"
-#include "ShaderUtil.h"
-#include "WinPixUtil.h"
-#include "FileUtil.h"
-#include "Logger.h"
-
-struct Transform
-{
-    DirectX::XMMATRIX World;
-    DirectX::XMMATRIX View;
-    DirectX::XMMATRIX Proj;
-};
-
-struct Light
-{
-    DirectX::XMFLOAT3 Color;     // 빛의 세기
-    float Range;                 // 포인트/스포트라이트 전용
-    DirectX::XMFLOAT3 Direction; // 디렉셔널/스포트라이트 전용
-    float SpotPower;             // 스포트라이트 전용
-    DirectX::XMFLOAT3 Position;  // 포인트라이트 전용
-    float pad;
-};
-
-struct LightBuffer
-{
-    Light DirLight;
-    Light PointLight;
-    Light SpotLight;
-};
-
-struct MaterialBuffer
-{
-    DirectX::XMFLOAT3 Diffuse;
-    float             Alpha;
-    DirectX::XMFLOAT3 Specular;
-    float             Shininess;
-};
-
-struct PassConstantBuffer
-{
-    alignas(16) DirectX::XMFLOAT3 CameraPosition;
-    alignas(16) DirectX::XMFLOAT4 AmbientLight;
-    int DiffuseMapUsable;
-    int SpecularMapUsable;
-    int ShininessMapUsable;
-    int NormalMapUsable;
-};
+#include <Renderer.h>
+#include <ShaderUtil.h>
+#include <WinPixUtil.h>
+#include <FileUtil.h>
+#include <Logger.h>
 
 Renderer::Renderer(HINSTANCE hInst, HWND hWnd, uint32_t width, uint32_t height)
     : m_hInst(hInst)
@@ -57,6 +15,8 @@ Renderer::Renderer(HINSTANCE hInst, HWND hWnd, uint32_t width, uint32_t height)
     , m_Height(height)
     , m_pDevice(nullptr)
     , m_FrameIndex(0)
+    , m_CurrFrameResIndex(0)
+    , m_RotateAngle(0.0f)
 {
     // 필수적인 요소 초기화
     InitD3DComponent();
@@ -217,6 +177,8 @@ bool Renderer::Load(const wchar_t* filePath)
 
     auto future = batch.End(m_pQueue.Get());
     future.wait();
+    
+    BuildRenderItems();
 
     return true;
 }
@@ -288,6 +250,8 @@ void Renderer::Resize(uint32_t width, uint32_t height)
 
 void Renderer::Render()
 {
+    Update();
+
     auto pTransform = m_Transform->GetPtr<Transform>();
 
     {
@@ -589,11 +553,29 @@ bool Renderer::InitD3DComponent()
     if (FAILED(hr))
         __debugbreak();
 
-    // command list, command allocator 생성
+    // command list, command allocator 생성 (제거 예정)
     m_CommandList.Init(
         m_pDevice.Get(), 
         D3D12_COMMAND_LIST_TYPE_DIRECT, 
         FrameCount);
+
+    // command allocator, command list 생성
+    hr = m_pDevice->CreateCommandAllocator(
+        D3D12_COMMAND_LIST_TYPE_DIRECT,
+        IID_PPV_ARGS(m_pDirCmdAllocator.GetAddressOf()));
+    if (FAILED(hr))
+        __debugbreak();
+
+    hr = m_pDevice->CreateCommandList(
+        1,
+        D3D12_COMMAND_LIST_TYPE_DIRECT,
+        m_pDirCmdAllocator.Get(),
+        nullptr,
+        IID_PPV_ARGS(m_pCmdList.GetAddressOf()));
+    if (FAILED(hr))
+        __debugbreak();
+
+    m_pCmdList->Close();
 
     // 4X MSAA 품질 수준 지원 점검
     D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msQualityLevels;
@@ -963,6 +945,8 @@ bool Renderer::InitD3DAsset()
         }
     }
 
+    BuildFrameResources();
+
     return true;
 }
 
@@ -1035,6 +1019,243 @@ void Renderer::CreateSwapChain()
 
     pFactory.Reset();
     pSwapChain.Reset();
+}
+
+void Renderer::BuildRenderItems()
+{
+    auto eyePos    = DirectX::XMVectorSet(0.0f, 0.4f, -2.0f, 0.0f);
+    auto targetPos = DirectX::XMVectorSet(0.0f, 0.4f, 0.0f, 0.0f);
+    auto upward    = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+    constexpr auto fovY = DirectX::XMConvertToRadians(37.5f);
+    auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
+
+    DirectX::XMMATRIX S = DirectX::XMMatrixScaling(Mesh::Scale, Mesh::Scale, Mesh::Scale);
+    DirectX::XMMATRIX R = DirectX::XMMatrixRotationY(m_RotateAngle);
+
+    int dataIdx = 0;
+
+    // mesh
+    for (int i = 0; i < m_pMesh.size(); ++i)
+    {
+        RenderItem rItem;
+        rItem.MeshIdx = i;
+        rItem.DataIdx = dataIdx++;
+        rItem.Transform.World = S * R;
+        rItem.Transform.View  = DirectX::XMMatrixLookAtRH(eyePos, targetPos, upward);
+        rItem.Transform.Proj  = DirectX::XMMatrixPerspectiveFovRH(fovY, aspect, 1.0f, 1000.0f);
+        m_RenderItems.push_back(rItem);
+    }
+
+    // shadow
+    for (int i = 0; i < m_pMesh.size(); ++i)
+    {
+        RenderItem rItem;
+        rItem.MeshIdx = i;
+        rItem.DataIdx = dataIdx++;
+        rItem.Transform.World = S * R;
+        rItem.Transform.View  = DirectX::XMMatrixLookAtRH(eyePos, targetPos, upward);
+        rItem.Transform.Proj  = DirectX::XMMatrixPerspectiveFovRH(fovY, aspect, 1.0f, 1000.0f);
+        m_RenderItems.push_back(rItem);
+    }
+}
+
+void Renderer::BuildFrameResources()
+{
+    m_FrameResources.clear();
+    for (int i = 0; i < FrameResourceCount; ++i)
+    {
+        FrameResource* res = new FrameResource(
+            m_pDevice.Get(),
+            m_pPool,
+            D3D12_COMMAND_LIST_TYPE_DIRECT,
+            m_RenderItems.size() == 0 ? 1 : m_RenderItems.size());
+        m_FrameResources.push_back(res);
+    }
+}
+
+void Renderer::Update()
+{
+    m_CurrFrameResIndex = (m_CurrFrameResIndex + 1) % FrameResourceCount;
+    m_CurrFrameRes = m_FrameResources[m_CurrFrameResIndex];
+
+    m_Fence.Wait(m_CurrFrameRes->Fence, INFINITE);
+
+    UpdateTransform();
+    UpdateLight();
+    UpdateMaterial();
+    UpdatePass();
+}
+
+void Renderer::UpdateTransform()
+{
+    // 카메라 설정
+    auto eyePos = DirectX::XMVectorSet(0.0f, 0.4f, -2.0f, 0.0f);
+    auto targetPos = DirectX::XMVectorSet(0.0f, 0.4f, 0.0f, 0.0f);
+    auto upward = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+    constexpr auto fovY = DirectX::XMConvertToRadians(37.5f);
+    auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
+
+    auto ptr = m_CurrFrameRes->Transform.GetPtr<Transform>();
+
+    for (int i = 0; i < m_RenderItems.size(); ++i)
+    {
+        ptr->World = DirectX::XMMatrixIdentity();
+        ptr->View  = DirectX::XMMatrixLookAtRH(eyePos, targetPos, upward);
+        ptr->Proj  = DirectX::XMMatrixPerspectiveFovRH(fovY, aspect, 1.0f, 1000.0f);
+    }
+}
+
+void Renderer::UpdateLight()
+{
+    for (int i = 0; i < m_RenderItems.size(); ++i)
+    {
+        const auto& rItem = m_RenderItems[i];
+
+        LightBuffer lb;
+        
+        lb.DirLight   = rItem.Light.DirLight;
+        lb.PointLight = rItem.Light.PointLight;
+        lb.SpotLight  = rItem.Light.SpotLight;
+
+        m_CurrFrameRes->Light.CopyData(rItem.DataIdx, lb);
+    }
+}
+
+void Renderer::UpdateMaterial()
+{
+    for (int i = 0; i < m_RenderItems.size(); ++i)
+    {
+        const auto& rItem = m_RenderItems[i];
+
+        MaterialBuffer mb;
+
+        mb.Diffuse   = rItem.Material.Diffuse;
+        mb.Alpha     = rItem.Material.Alpha;
+        mb.Specular  = rItem.Material.Specular;
+        mb.Shininess = rItem.Material.Shininess;
+
+        m_CurrFrameRes->Material.CopyData(rItem.DataIdx, mb);
+    }
+}
+
+void Renderer::UpdatePass()
+{
+    //auto ptr = m_CurrFrameRes->Pass.GetPtr<PassConstantBuffer>();
+
+    //ptr->CameraPosition = DirectX::XMFLOAT3(0.0f, 0.4f, -2.0f);
+    //ptr->AmbientLight = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
+
+    for (int i = 0; i < m_RenderItems.size(); ++i)
+    {
+        const auto& rItem = m_RenderItems[i];
+
+        PassConstantBuffer cb;
+
+        cb.DiffuseMapUsable   = rItem.Pass.DiffuseMapUsable;
+        cb.SpecularMapUsable  = rItem.Pass.SpecularMapUsable;
+        cb.ShininessMapUsable = rItem.Pass.ShininessMapUsable;
+        cb.NormalMapUsable    = rItem.Pass.NormalMapUsable;
+
+        m_CurrFrameRes->Pass.CopyData(rItem.DataIdx, cb);
+    }
+}
+
+void Renderer::Draw()
+{
+    auto pCmdAllocator = m_CurrFrameRes->Allocator;
+    auto hr = pCmdAllocator->Reset();
+    if (FAILED(hr))
+        __debugbreak();
+
+    hr = m_pCmdList->Reset(pCmdAllocator.Get(), nullptr);
+    if (FAILED(hr))
+        __debugbreak();
+
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+    barrier.Transition.pResource = m_ColorTarget[m_FrameIndex].GetResource();
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+    m_pCmdList->ResourceBarrier(1, &barrier);
+
+    auto handleRTV = m_ColorTarget[m_FrameIndex].GetHandleRTV();
+    auto handleDSV = m_DepthTarget.GetHandleDSV();
+
+    m_pCmdList->OMSetRenderTargets(1, &handleRTV->HandleCPU, FALSE, &handleDSV->HandleCPU);
+
+    float clearColor[] = { 0.0f, 0.439f, 0.439f, 1.0f };    // 0.0, 0.52, 0.52
+    m_pCmdList->ClearRenderTargetView(handleRTV->HandleCPU, clearColor, 0, nullptr);
+    m_pCmdList->ClearDepthStencilView(handleDSV->HandleCPU, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+    {
+        ID3D12DescriptorHeap* const pHeaps[] = {
+            m_pPool[DescriptorPool::POOL_TYPE_RES]->GetHeap()
+        };
+
+        m_pCmdList->SetGraphicsRootSignature(m_pRootSig.Get());
+        m_pCmdList->SetDescriptorHeaps(1, pHeaps);
+        m_pCmdList->SetPipelineState(m_pPSO.Get());
+        m_pCmdList->RSSetViewports(1, &m_Viewport);
+        m_pCmdList->RSSetScissorRects(1, &m_Scissor);
+
+        DrawRenderItems();
+    }
+
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+    barrier.Transition.pResource = m_ColorTarget[m_FrameIndex].GetResource();
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+    m_pCmdList->ResourceBarrier(1, &barrier);
+
+    m_pCmdList->Close();
+
+    ID3D12CommandList* pLists[] = { m_pCmdList.Get() };
+    m_pQueue->ExecuteCommandLists(1, pLists);
+
+    //Present(1);
+
+    // ...
+    m_pSwapChain->Present(1, 0);
+    m_FrameIndex = m_pSwapChain->GetCurrentBackBufferIndex();
+    m_CurrFrameRes->Fence = m_Fence.GetCounter();
+    m_Fence.Signal(m_pQueue.Get());
+}
+
+void Renderer::DrawRenderItems()
+{
+    const auto pTransform = m_CurrFrameRes->Transform.GetAddress();
+    const auto pLight     = m_CurrFrameRes->Light.GetAddress();
+    const auto pMaterial  = m_CurrFrameRes->Material.GetAddress();
+    const auto pPass      = m_CurrFrameRes->Pass.GetAddress();
+
+    for (int i = 0; i < m_RenderItems.size(); ++i)
+    {
+        const auto& rItem = m_RenderItems[i];
+        const int id = m_pMesh[rItem.MeshIdx]->GetMaterialId();
+        const int dataIdx = rItem.DataIdx;
+
+        const UINT64 transformSize = m_CurrFrameRes->Transform.GetElementSize();
+        const UINT64 lightSize     = m_CurrFrameRes->Light.GetElementSize();
+        const UINT64 materialSize  = m_CurrFrameRes->Material.GetElementSize();
+        const UINT64 passSize      = m_CurrFrameRes->Pass.GetElementSize();
+
+        m_pCmdList->SetGraphicsRootConstantBufferView(0, pTransform + dataIdx * transformSize);
+        m_pCmdList->SetGraphicsRootConstantBufferView(1, pLight + dataIdx * lightSize);
+        m_pCmdList->SetGraphicsRootConstantBufferView(2, pMaterial + dataIdx * materialSize);
+        m_pCmdList->SetGraphicsRootConstantBufferView(3, pPass + dataIdx * passSize);
+        m_pCmdList->SetGraphicsRootDescriptorTable(4, m_Material.GetTextureHandle(id, TU_DIFFUSE));
+        m_pCmdList->SetGraphicsRootDescriptorTable(5, m_Material.GetTextureHandle(id, TU_NORMAL));
+        m_pCmdList->SetGraphicsRootDescriptorTable(6, m_Material.GetTextureHandle(id, TU_SPECULAR));
+        m_pMesh[rItem.MeshIdx]->Draw(m_pCmdList.Get());
+    }
 }
 
 void Renderer::Present(uint32_t interval)

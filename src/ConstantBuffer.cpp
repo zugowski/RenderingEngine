@@ -33,6 +33,8 @@ bool ConstantBuffer::Init
     size_t align = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
     UINT64 sizeAligned = (size + (align - 1)) & ~(align - 1);
 
+    m_ElementSize = sizeAligned;
+
     D3D12_HEAP_PROPERTIES prop = {};
     prop.Type = D3D12_HEAP_TYPE_UPLOAD;
     prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;

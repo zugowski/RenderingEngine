@@ -86,3 +86,24 @@ void Fence::Sync(ID3D12CommandQueue* pQueue)
 
     m_Counter++;
 }
+
+void Fence::Wait(UINT64 fenceValue, UINT timeout)
+{
+    if (fenceValue == 0)
+        return;
+
+    if (fenceValue < m_pFence->GetCompletedValue())
+    {
+        auto hr = m_pFence->SetEventOnCompletion(fenceValue, m_Event);
+        if (FAILED(hr))
+            __debugbreak();
+
+        if (WAIT_OBJECT_0 != WaitForSingleObjectEx(m_Event, timeout, FALSE))
+            return;
+    }
+}
+
+void Fence::Signal(ID3D12CommandQueue* pQueue)
+{
+    pQueue->Signal(m_pFence.Get(), m_Counter);
+}
