@@ -16,13 +16,12 @@ public:
 
     // FrameResource ¿ë
     void Wait(UINT64 fenceValue, UINT timeout);
-    void Signal(ID3D12CommandQueue* pQueue);
-    UINT GetCounter() const { return m_Counter; }
+    UINT64 Signal(ID3D12CommandQueue* pQueue);
 
 private:
     ComPtr<ID3D12Fence> m_pFence;
     HANDLE              m_Event;
-    UINT                m_Counter;
+    UINT64              m_Counter;
 
     Fence(const Fence&) = delete;
     void operator = (const Fence&) = delete;

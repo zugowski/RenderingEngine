@@ -18,7 +18,8 @@ bool ConstantBuffer::Init
 (
     ID3D12Device*   pDevice,
     DescriptorPool* pPool,
-    size_t          size
+    size_t          size,
+    int             count
 )
 {
     if (pDevice == nullptr || pPool == nullptr || size == 0)
@@ -45,7 +46,7 @@ bool ConstantBuffer::Init
     D3D12_RESOURCE_DESC desc = {};
     desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
     desc.Alignment = 0;
-    desc.Width = sizeAligned;
+    desc.Width = sizeAligned * count;
     desc.Height = 1;
     desc.DepthOrArraySize = 1;
     desc.MipLevels = 1;
@@ -70,7 +71,7 @@ bool ConstantBuffer::Init
         return false;
 
     m_Desc.BufferLocation = m_pCB->GetGPUVirtualAddress();
-    m_Desc.SizeInBytes = UINT(sizeAligned);
+    m_Desc.SizeInBytes = UINT(sizeAligned) * count;
     m_pHandle = pPool->AllocHandle();
 
     pDevice->CreateConstantBufferView(&m_Desc, m_pHandle->HandleCPU);

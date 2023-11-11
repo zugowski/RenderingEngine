@@ -6,14 +6,21 @@
 #include <Material.h>
 #include <ConstantBuffer.h>
 
-struct Transform
+struct TransformBuffer
 {
     DirectX::XMMATRIX World;
     DirectX::XMMATRIX View;
     DirectX::XMMATRIX Proj;
+
+    TransformBuffer()
+    {
+        World = DirectX::XMMatrixIdentity();
+        View  = DirectX::XMMatrixIdentity();
+        Proj  = DirectX::XMMatrixIdentity();
+    }
 };
 
-struct Light
+struct LightItem
 {
     DirectX::XMFLOAT3 Color;     // 빛의 세기
     float Range;                 // 포인트/스포트라이트 전용
@@ -21,13 +28,23 @@ struct Light
     float SpotPower;             // 스포트라이트 전용
     DirectX::XMFLOAT3 Position;  // 포인트라이트 전용
     float pad;
+
+    LightItem()
+    {
+        Color     = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
+        Range     = 0.0f;
+        Direction = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
+        SpotPower = 0.0f;
+        Position  = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
+        pad       = 0.0f;
+    }
 };
 
 struct LightBuffer
 {
-    Light DirLight;
-    Light PointLight;
-    Light SpotLight;
+    LightItem DirLight;
+    LightItem PointLight;
+    LightItem SpotLight;
 };
 
 struct MaterialBuffer
@@ -36,9 +53,17 @@ struct MaterialBuffer
     float             Alpha;
     DirectX::XMFLOAT3 Specular;
     float             Shininess;
+
+    MaterialBuffer()
+    {
+        Diffuse   = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
+        Alpha     = 0.0f;
+        Specular  = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
+        Shininess = 0.0f;
+    }
 };
 
-struct PassConstantBuffer
+struct PassConstant
 {
     alignas(16) DirectX::XMFLOAT3 CameraPosition;
     alignas(16) DirectX::XMFLOAT4 AmbientLight;
@@ -46,6 +71,16 @@ struct PassConstantBuffer
     int SpecularMapUsable;
     int ShininessMapUsable;
     int NormalMapUsable;
+
+    PassConstant()
+    {
+        CameraPosition     = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
+        AmbientLight       = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
+        DiffuseMapUsable   = 0;
+        SpecularMapUsable  = 0;
+        ShininessMapUsable = 0;
+        NormalMapUsable    = 0;
+    }
 };
 
 class FrameResource

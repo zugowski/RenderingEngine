@@ -80,7 +80,7 @@ bool Material::Init
                 return false;
             }
 
-            if (!pBuffer->Init(pDevice, pPool, bufferSize))
+            if (!pBuffer->Init(pDevice, pPool, bufferSize, 1))
             {
                 ELOG("Error : ConstantBuffer::Init() Failed.");
                 return false;

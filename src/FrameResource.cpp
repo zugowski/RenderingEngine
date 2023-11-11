@@ -17,7 +17,8 @@ FrameResource::FrameResource
     if (!Transform.Init(
         pDevice,
         pPool[DescriptorPool::POOL_TYPE_RES],
-        sizeof(Transform) * count))
+        sizeof(TransformBuffer),
+        count))
     {
         __debugbreak();
     }
@@ -25,7 +26,8 @@ FrameResource::FrameResource
     if (!Light.Init(
         pDevice,
         pPool[DescriptorPool::POOL_TYPE_RES],
-        sizeof(LightBuffer) * count))
+        sizeof(LightBuffer),
+        count))
     {
         __debugbreak();
     }
@@ -33,7 +35,8 @@ FrameResource::FrameResource
     if (!Material.Init(
         pDevice,
         pPool[DescriptorPool::POOL_TYPE_RES],
-        sizeof(MaterialBuffer) * count))
+        sizeof(MaterialBuffer),
+        count))
     {
         __debugbreak();
     }
@@ -41,7 +44,8 @@ FrameResource::FrameResource
     if (!Pass.Init(
         pDevice,
         pPool[DescriptorPool::POOL_TYPE_RES],
-        sizeof(PassConstantBuffer) * count))
+        sizeof(PassConstant),
+        count))
     {
         __debugbreak();
     }

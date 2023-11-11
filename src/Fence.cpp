@@ -92,7 +92,7 @@ void Fence::Wait(UINT64 fenceValue, UINT timeout)
     if (fenceValue == 0)
         return;
 
-    if (fenceValue < m_pFence->GetCompletedValue())
+    if (m_pFence->GetCompletedValue() < fenceValue)
     {
         auto hr = m_pFence->SetEventOnCompletion(fenceValue, m_Event);
         if (FAILED(hr))
@@ -103,7 +103,10 @@ void Fence::Wait(UINT64 fenceValue, UINT timeout)
     }
 }
 
-void Fence::Signal(ID3D12CommandQueue* pQueue)
+UINT64 Fence::Signal(ID3D12CommandQueue* pQueue)
 {
-    pQueue->Signal(m_pFence.Get(), m_Counter);
+    const auto fenceValue = m_Counter;
+    pQueue->Signal(m_pFence.Get(), fenceValue);
+    ++m_Counter;
+    return fenceValue;
 }
