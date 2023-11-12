@@ -696,8 +696,12 @@ void Renderer::BuildRenderItems()
     constexpr auto fovY = DirectX::XMConvertToRadians(37.5f);
     auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
 
-    DirectX::XMMATRIX S = DirectX::XMMatrixScaling(Mesh::Scale, Mesh::Scale, Mesh::Scale);
-    DirectX::XMMATRIX R = DirectX::XMMatrixRotationY(m_RotateAngle);
+    const DirectX::XMMATRIX S1 = DirectX::XMMatrixScaling(Mesh::Scale, Mesh::Scale, Mesh::Scale);
+    //const DirectX::XMMATRIX R = DirectX::XMMatrixRotationY(m_RotateAngle);
+
+    const DirectX::XMVECTOR shadowPlane = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+    const DirectX::XMVECTOR dirLightDir = DirectX::XMLoadFloat3(&Light.DirLight.Direction);
+    const DirectX::XMMATRIX S2 = DirectX::XMMatrixShadow(shadowPlane, dirLightDir);
 
     int dataIdx = 0;
 
@@ -708,7 +712,7 @@ void Renderer::BuildRenderItems()
         rItem.IsShadow = false;
         rItem.MeshIdx  = i;
         rItem.DataIdx  = dataIdx++;
-        rItem.Transform.World = S * R;
+        rItem.Transform.World = S1;
         rItem.Transform.View  = DirectX::XMMatrixLookAtRH(eyePos, targetPos, upward);
         rItem.Transform.Proj  = DirectX::XMMatrixPerspectiveFovRH(fovY, aspect, 1.0f, 1000.0f);
         m_RenderItems.push_back(rItem);
@@ -721,7 +725,7 @@ void Renderer::BuildRenderItems()
         rItem.IsShadow = true;
         rItem.MeshIdx  = i;
         rItem.DataIdx  = dataIdx++;
-        rItem.Transform.World = S * R;
+        rItem.Transform.World = S1 * S2;
         rItem.Transform.View  = DirectX::XMMatrixLookAtRH(eyePos, targetPos, upward);
         rItem.Transform.Proj  = DirectX::XMMatrixPerspectiveFovRH(fovY, aspect, 1.0f, 1000.0f);
         m_RenderItems.push_back(rItem);
@@ -753,10 +757,25 @@ void Renderer::Update()
     {
         auto& rItem = m_RenderItems[i];
         //rItem.Transform = Transform;
+
+        const DirectX::XMMATRIX S1 = DirectX::XMMatrixScaling(Mesh::Scale, Mesh::Scale, Mesh::Scale);
+        const DirectX::XMMATRIX R = DirectX::XMMatrixRotationY(m_RotateAngle);
+
+        const DirectX::XMVECTOR shadowPlane = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+        const DirectX::XMVECTOR dirLightDir = DirectX::XMLoadFloat3(&Light.DirLight.Direction);
+        const DirectX::XMMATRIX S2 = DirectX::XMMatrixShadow(shadowPlane, dirLightDir);
+
+        if (!rItem.IsShadow)
+            rItem.Transform.World = S1 * R;
+        else
+            rItem.Transform.World = S1 * S2 * R;
+
         rItem.Light     = rItem.IsShadow ? rItem.Light : Light;
         rItem.Material  = *(m_Material.GetBufferPtr<MaterialBuffer>(rItem.MeshIdx));
         rItem.Pass      = Pass;
     }
+
+    m_RotateAngle += 0.010f;
 
     UpdateTransform();
     UpdateLight();
