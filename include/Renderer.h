@@ -18,6 +18,7 @@
 #include <Material.h>
 #include <Mesh.h>
 #include <Texture.h>
+#include <GameTimer.h>
 
 constexpr auto DirLightInitDir        = DirectX::XMFLOAT3(0.0f, 30.0f, -15.0f);
 constexpr auto PointLightInitPos      = DirectX::XMFLOAT3(0.0f, 30.0f, -15.0f);
@@ -33,6 +34,7 @@ public:
     virtual bool Load(const wchar_t* filePath) = 0;
     virtual void Resize(uint32_t width, uint32_t height) = 0;
     virtual void Render() = 0;
+    virtual void Tick() = 0;
 
 public:
     static const uint32_t    FrameCount = 2;
@@ -68,6 +70,7 @@ public:
     bool Load(const wchar_t* filePath);
     void Resize(uint32_t width, uint32_t height);
     void Render();
+    void Tick() { m_Timer.Tick(); }
 
 private:
     HINSTANCE m_hInst;
@@ -101,6 +104,8 @@ private:
     ComPtr<ID3D12CommandAllocator>    m_pDirCmdAllocator;
 
     std::vector<RenderItem> m_RenderItems;
+
+    GameTimer m_Timer;
 
 private:
     bool InitD3DComponent();

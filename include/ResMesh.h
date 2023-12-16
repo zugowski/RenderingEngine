@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#define MAX_INFLUENCE_BONE_COUNT  4
+
 struct TexturePath
 {
     std::wstring DiffuseMap;
@@ -68,6 +70,9 @@ public:
     DirectX::XMFLOAT2   TexCoord;
     DirectX::XMFLOAT3   Tangent;
 
+    int   BoneIDs[MAX_INFLUENCE_BONE_COUNT];
+    float BoneWeights[MAX_INFLUENCE_BONE_COUNT];
+
     MeshVertex() = default;
 
     MeshVertex(
@@ -79,7 +84,25 @@ public:
         , Normal    (normal)
         , TexCoord  (texcoord)
         , Tangent   (tangent)
-    {}
+    {
+        for (int i = 0; i < MAX_INFLUENCE_BONE_COUNT; ++i)
+        {
+            BoneIDs[i] = -1;
+            BoneWeights[i] = 0.0f;
+        }
+    }
+
+    void SetVertexBoneData(int id, float weight)
+    {
+        for (int i = 0; i < MAX_INFLUENCE_BONE_COUNT; ++i)
+        {
+            if (BoneIDs[i] < 0)
+            {
+                BoneIDs[i] = id;
+                BoneWeights[i] = weight;
+            }
+        }
+    }
 
     static const D3D12_INPUT_LAYOUT_DESC InputLayout;
 
@@ -88,11 +111,18 @@ private:
     static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
 };
 
+struct BoneInfo
+{
+    int Id;
+    DirectX::XMMATRIX Offset;
+};
+
 struct ResMesh
 {
     std::vector<MeshVertex> Vertices;
     std::vector<uint32_t>   Indices;
     uint32_t                MaterialId;
+    std::vector<BoneInfo>   BonesInfo;
 };
 
 bool LoadMesh(

@@ -18,6 +18,9 @@ add_compile_definitions(DLL_EXPORTS)
 add_compile_definitions(NOMINMAX)
 
 set( HEADER_FILES
+    include/Animation.h
+    include/AssimpUtil.h
+    include/Bone.h
     include/CommandList.h
     include/ComPtr.h
     include/ConstantBuffer.h
@@ -28,6 +31,7 @@ set( HEADER_FILES
     include/FileUtil.h
     include/FrameResource.h
     include/framework.h
+    include/GameTimer.h
     include/IndexBuffer.h
     include/Logger.h
     include/Material.h
@@ -45,6 +49,8 @@ set( HEADER_FILES
 
 set( SOURCE_FILES
     src/dllmain.cpp
+    src/Animation.cpp
+    src/Bone.cpp
     src/CommandList.cpp
     src/ConstantBuffer.cpp
     src/DepthTarget.cpp
@@ -52,6 +58,7 @@ set( SOURCE_FILES
     src/Fence.cpp
     src/FileUtil.cpp
     src/FrameResource.cpp
+    src/GameTimer.cpp
     src/IndexBuffer.cpp
     src/Logger.cpp
     src/Material.cpp

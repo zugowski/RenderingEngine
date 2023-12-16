@@ -1,10 +1,13 @@
 #pragma once
 
+#include <map>
 #include <ResMesh.h>
 #include <VertexBuffer.h>
 #include <IndexBuffer.h>
 #include <CommandList.h>
 #include <Fence.h>
+
+//#define MAX_INFLUENCE_BONE_COUNT  4
 
 class Mesh
 {
@@ -33,6 +36,8 @@ private:
     IndexBuffer     m_IB;
     uint32_t        m_MaterialId;
     uint32_t        m_IndexCount;
+
+    std::map<std::string, BoneInfo> m_BoneInfoMap;
 
     Mesh(const Mesh&) = delete;
     void operator = (const Mesh&) = delete;

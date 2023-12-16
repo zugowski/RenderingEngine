@@ -761,14 +761,17 @@ void Renderer::Update()
         const DirectX::XMMATRIX S1 = DirectX::XMMatrixScaling(Mesh::Scale, Mesh::Scale, Mesh::Scale);
         const DirectX::XMMATRIX R = DirectX::XMMatrixRotationY(m_RotateAngle);
 
-        const DirectX::XMVECTOR shadowPlane = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-        const DirectX::XMVECTOR dirLightDir = DirectX::XMLoadFloat3(&Light.DirLight.Direction);
-        const DirectX::XMMATRIX S2 = DirectX::XMMatrixShadow(shadowPlane, dirLightDir);
-
         if (!rItem.IsShadow)
+        {
             rItem.Transform.World = S1 * R;
+        }
         else
+        {
+            const DirectX::XMVECTOR shadowPlane = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+            const DirectX::XMVECTOR dirLightDir = DirectX::XMLoadFloat3(&Light.DirLight.Direction);
+            const DirectX::XMMATRIX S2 = DirectX::XMMatrixShadow(shadowPlane, dirLightDir);
             rItem.Transform.World = S1 * S2 * R;
+        }
 
         rItem.Light     = rItem.IsShadow ? rItem.Light : Light;
         rItem.Material  = *(m_Material.GetBufferPtr<MaterialBuffer>(rItem.MeshIdx));

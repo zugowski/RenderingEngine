@@ -1,5 +1,6 @@
-#include "ResMesh.h"
-#include "Mesh.h"
+#include <AssimpUtil.h>
+#include <ResMesh.h>
+#include <Mesh.h>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -79,16 +80,16 @@ namespace {
         Assimp::Importer importer;
         unsigned int flag = 0;
         flag |= aiProcess_Triangulate;
-        flag |= aiProcess_PreTransformVertices;
+        //flag |= aiProcess_PreTransformVertices;
         flag |= aiProcess_CalcTangentSpace;
         flag |= aiProcess_GenSmoothNormals;
         flag |= aiProcess_GenUVCoords;
         flag |= aiProcess_RemoveRedundantMaterials;
         flag |= aiProcess_OptimizeMeshes;
         flag |= aiProcess_ConvertToLeftHanded;
+        flag |= aiProcess_LimitBoneWeights;
 
         m_pScene = importer.ReadFile(path, flag);
-
         if (m_pScene == nullptr)
         {
             return false;
@@ -155,7 +156,7 @@ namespace {
 
         dstMesh.Vertices.resize(pSrcMesh->mNumVertices);
 
-        for (auto i = 0u; i < pSrcMesh->mNumVertices; ++i)
+        for (auto i = 0; i < pSrcMesh->mNumVertices; ++i)
         {
             auto pPosition = &(pSrcMesh->mVertices[i]);
             auto pNormal = &(pSrcMesh->mNormals[i]);
@@ -172,7 +173,7 @@ namespace {
 
         dstMesh.Indices.resize(pSrcMesh->mNumFaces * 3);
 
-        for (auto i = 0u; i < pSrcMesh->mNumFaces; ++i)
+        for (auto i = 0; i < pSrcMesh->mNumFaces; ++i)
         {
             const auto& face = pSrcMesh->mFaces[i];
             assert(face.mNumIndices == 3);
@@ -180,6 +181,21 @@ namespace {
             dstMesh.Indices[i * 3 + 0] = face.mIndices[0];
             dstMesh.Indices[i * 3 + 1] = face.mIndices[1];
             dstMesh.Indices[i * 3 + 2] = face.mIndices[2];
+        }
+
+        // extract bone weight for vertices
+        for (int i = 0; i < pSrcMesh->mNumBones; ++i)
+        {
+            BoneInfo boneInfo;
+            boneInfo.Id = i;
+            boneInfo.Offset = AssimpUtil::ConvertToXMMATRIX(pSrcMesh->mBones[i]->mOffsetMatrix);
+            dstMesh.BonesInfo.push_back(boneInfo);
+            for (int j = 0; j < pSrcMesh->mBones[i]->mNumWeights; ++j)
+            {
+                const auto vertexID = pSrcMesh->mBones[i]->mWeights[j].mVertexId;
+                const auto weight = pSrcMesh->mBones[i]->mWeights[j].mWeight;
+                dstMesh.Vertices[vertexID].SetVertexBoneData(i, weight);
+            }
         }
     }
 
@@ -361,7 +377,7 @@ const D3D12_INPUT_ELEMENT_DESC MeshVertex::InputElements[] = {
     { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 };
 const D3D12_INPUT_LAYOUT_DESC MeshVertex::InputLayout = { MeshVertex::InputElements, MeshVertex::InputElementCount };
-static_assert(sizeof(MeshVertex) == 44, "Vertex struct/layout mismatch");
+static_assert(sizeof(MeshVertex) == 44 + 16 + 16, "Vertex struct/layout mismatch");
 
 bool LoadMesh
 (
